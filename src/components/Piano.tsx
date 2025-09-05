@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import * as Tone from "tone"
+import { useStore } from "@/store/store"
 
 const whiteKeys = [
   "C3",
@@ -48,12 +49,13 @@ const blackKeys = [
 ]
 
 export default function PianoApp() {
-  const [activeNotes, setActiveNotes] = useState<Set<string>>(new Set())
+  const { activeNotes, addActiveNote, removeActiveNote, clearActiveNotes } = useStore()
   const [isCtrlPressed, setIsCtrlPressed] = useState(false)
   const [selectedChordNotes, setSelectedChordNotes] = useState<Set<string>>(new Set())
   const [selectedNote, setSelectedNote] = useState<string>("")
   const synthRef = useRef<Tone.Sampler | null>(null)
   const [isAudioStarted, setIsAudioStarted] = useState(false)
+  const [shouldPlayChord, setShouldPlayChord] = useState<Set<string> | null>(null)
 
   useEffect(() => {
     synthRef.current = new Tone.Sampler({
@@ -153,30 +155,43 @@ export default function PianoApp() {
     }
   }, [isAudioStarted])
 
+  // Handle chord playback
+  useEffect(() => {
+    if (shouldPlayChord && synthRef.current) {
+      const timeoutId = setTimeout(() => {
+        synthRef.current?.releaseAll()
+        shouldPlayChord.forEach((chordNote) => {
+          if (synthRef.current) {
+            synthRef.current.triggerAttackRelease(chordNote, "2n")
+          }
+        })
+        setShouldPlayChord(null)
+      }, 50)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [shouldPlayChord])
+
   const playNote = useCallback(
     async (note: string) => {
       await startAudio()
 
-      if (synthRef.current) {
+      if (synthRef.current && !activeNotes.has(note)) {
         synthRef.current.triggerAttack(note)
-        setActiveNotes((prev) => new Set(prev).add(note))
+        addActiveNote(note)
       }
     },
-    [startAudio, activeNotes],
+    [startAudio, activeNotes, addActiveNote],
   )
 
   const stopNote = useCallback(
     (note: string) => {
       if (synthRef.current && activeNotes.has(note)) {
         synthRef.current.triggerRelease(note)
-        setActiveNotes((prev) => {
-          const newSet = new Set(prev)
-          newSet.delete(note)
-          return newSet
-        })
+        removeActiveNote(note)
       }
     },
-    [activeNotes],
+    [activeNotes, removeActiveNote],
   )
 
   const handleMouseDown = useCallback(
@@ -185,7 +200,7 @@ export default function PianoApp() {
         // Clear any previously selected regular note when starting chord selection
         if (selectedNote) {
           setSelectedNote("")
-          setActiveNotes(new Set())
+          clearActiveNotes()
         }
         
         setSelectedChordNotes((prev) => {
@@ -195,31 +210,16 @@ export default function PianoApp() {
             newSet.delete(note)
             // If removing from chord, stop the note
             if (activeNotes.has(note)) {
-              setActiveNotes((prev) => {
-                const newActiveSet = new Set(prev)
-                newActiveSet.delete(note)
-                return newActiveSet
-              })
+              removeActiveNote(note)
             }
           } else {
             newSet.add(note)
             // If adding to chord, play the note
-            setActiveNotes((prev) => new Set(prev).add(note))
+            addActiveNote(note)
           }
           
-          // Play the updated chord after a brief delay
-          setTimeout(() => {
-            if (synthRef.current) {
-              // Stop all current notes first
-              synthRef.current.releaseAll()
-              // Play the new chord
-              newSet.forEach((chordNote) => {
-                if (synthRef.current) {
-                  synthRef.current.triggerAttackRelease(chordNote, "2n")
-                }
-              })
-            }
-          }, 50)
+          // Trigger chord playback
+          setShouldPlayChord(newSet)
           
           return newSet
         })
@@ -230,19 +230,8 @@ export default function PianoApp() {
           const newSet = new Set(prev)
           newSet.delete(note)
           
-          // Play the updated chord after a brief delay
-          setTimeout(() => {
-            if (synthRef.current) {
-              // Stop all current notes first
-              synthRef.current.releaseAll()
-              // Play the new chord
-              newSet.forEach((chordNote) => {
-                if (synthRef.current) {
-                  synthRef.current.triggerAttackRelease(chordNote, "2n")
-                }
-              })
-            }
-          }, 50)
+          // Trigger chord playback
+          setShouldPlayChord(newSet)
           
           return newSet
         })
@@ -255,7 +244,7 @@ export default function PianoApp() {
         playNote(note)
         setSelectedNote(note)
         setSelectedChordNotes(new Set())
-        setActiveNotes(new Set())
+        clearActiveNotes()
       }
       else{
         playNote(note)
@@ -277,7 +266,13 @@ export default function PianoApp() {
       A: 364,
     }
 
-    const octaveOffset = (octaveNumber - 3) * 448
+    let octaveOffset = (octaveNumber - 3) * 448 
+    if (octaveNumber == 4) {
+      octaveOffset = (octaveNumber - 3) * 448 - 3
+    } 
+    if (octaveNumber == 5) {
+      octaveOffset = (octaveNumber - 3) * 448 - 6
+    } 
     const basePosition = positions[baseNote as keyof typeof positions] || 0
 
     return basePosition + octaveOffset
@@ -387,11 +382,7 @@ export default function PianoApp() {
                       }
                     })
                     setSelectedChordNotes(new Set)
-                    setActiveNotes((prev) => {
-                      const newSet = new Set(prev)
-                      selectedChordNotes.forEach((note) => newSet.delete(note))
-                      return newSet
-                    })
+                    selectedChordNotes.forEach((note) => removeActiveNote(note))
                   }}
                   className="bg-green-700 border-green-600 text-white hover:bg-green-600"
                 >
