@@ -51,6 +51,7 @@ export default function PianoApp() {
   const [activeNotes, setActiveNotes] = useState<Set<string>>(new Set())
   const [isCtrlPressed, setIsCtrlPressed] = useState(false)
   const [selectedChordNotes, setSelectedChordNotes] = useState<Set<string>>(new Set())
+  const [selectedNote, setSelectedNote] = useState<string>("")
   const synthRef = useRef<Tone.Sampler | null>(null)
   const [isAudioStarted, setIsAudioStarted] = useState(false)
 
@@ -156,7 +157,7 @@ export default function PianoApp() {
     async (note: string) => {
       await startAudio()
 
-      if (synthRef.current && !activeNotes.has(note)) {
+      if (synthRef.current) {
         synthRef.current.triggerAttack(note)
         setActiveNotes((prev) => new Set(prev).add(note))
       }
@@ -181,31 +182,87 @@ export default function PianoApp() {
   const handleMouseDown = useCallback(
     (note: string) => {
       if (isCtrlPressed) {
-        setSelectedChordNotes((prev) => new Set(prev).add(note))
+        // Clear any previously selected regular note when starting chord selection
+        if (selectedNote) {
+          setSelectedNote("")
+          setActiveNotes(new Set())
+        }
+        
+        setSelectedChordNotes((prev) => {
+          const newSet = new Set(prev)
+          const wasInChord = newSet.has(note)
+          if (wasInChord) {
+            newSet.delete(note)
+            // If removing from chord, stop the note
+            if (activeNotes.has(note)) {
+              setActiveNotes((prev) => {
+                const newActiveSet = new Set(prev)
+                newActiveSet.delete(note)
+                return newActiveSet
+              })
+            }
+          } else {
+            newSet.add(note)
+            // If adding to chord, play the note
+            setActiveNotes((prev) => new Set(prev).add(note))
+          }
+          
+          // Play the updated chord after a brief delay
+          setTimeout(() => {
+            if (synthRef.current) {
+              // Stop all current notes first
+              synthRef.current.releaseAll()
+              // Play the new chord
+              newSet.forEach((chordNote) => {
+                if (synthRef.current) {
+                  synthRef.current.triggerAttackRelease(chordNote, "2n")
+                }
+              })
+            }
+          }, 50)
+          
+          return newSet
+        })
+        return
+      }
+      else if (selectedChordNotes.has(note)) {
+        setSelectedChordNotes((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(note)
+          
+          // Play the updated chord after a brief delay
+          setTimeout(() => {
+            if (synthRef.current) {
+              // Stop all current notes first
+              synthRef.current.releaseAll()
+              // Play the new chord
+              newSet.forEach((chordNote) => {
+                if (synthRef.current) {
+                  synthRef.current.triggerAttackRelease(chordNote, "2n")
+                }
+              })
+            }
+          }, 50)
+          
+          return newSet
+        })
+        // Play the note for immediate visual feedback
+        // Stop after a brief moment
+        setTimeout(() => stopNote(note), 150)
+      } 
+      else if (selectedNote != note && selectedChordNotes) {
+        stopNote(selectedNote)
         playNote(note)
-      } else {
+        setSelectedNote(note)
+        setSelectedChordNotes(new Set())
+        setActiveNotes(new Set())
+      }
+      else{
         playNote(note)
+        setSelectedNote(note)
       }
     },
-    [playNote, isCtrlPressed],
-  )
-
-  const handleMouseUp = useCallback(
-    (note: string) => {
-      if (!isCtrlPressed) {
-        stopNote(note)
-      }
-    },
-    [stopNote, isCtrlPressed],
-  )
-
-  const handleMouseLeave = useCallback(
-    (note: string) => {
-      if (!isCtrlPressed && !selectedChordNotes.has(note)) {
-        stopNote(note)
-      }
-    },
-    [stopNote, isCtrlPressed, selectedChordNotes],
+    [playNote, isCtrlPressed, selectedNote, stopNote, activeNotes, selectedChordNotes],
   )
 
   const getBlackKeyPosition = (note: string, octave: string) => {
@@ -256,17 +313,12 @@ export default function PianoApp() {
                       w-16 h-48 border-2 border-slate-600 transition-all duration-75
                       ${
                         activeNotes.has(note)
-                          ? "bg-blue-400 border-blue-300 shadow-lg shadow-blue-500/50"
-                          : selectedChordNotes.has(note)
-                            ? "bg-green-300 border-green-400 shadow-lg shadow-green-500/50"
-                            : "bg-white hover:bg-slate-100"
+                          ? "bg-blue-400 border-blue-300 shadow-lg shadow-blue-500/50" : "bg-white hover:bg-slate-100"
                       }
                       ${index === 0 ? "rounded-l-lg" : ""}
                       ${index === whiteKeys.length - 1 ? "rounded-r-lg" : ""}
                     `}
                     onMouseDown={() => handleMouseDown(note)}
-                    onMouseUp={() => handleMouseUp(note)}
-                    onMouseLeave={() => handleMouseLeave(note)}
                   >
                     <span className="text-xs text-slate-600 mt-auto block pb-4 font-medium">{note}</span>
                   </button>
@@ -289,13 +341,13 @@ export default function PianoApp() {
                             ? "bg-purple-500 border-purple-400 shadow-lg shadow-purple-500/50"
                             : selectedChordNotes.has(note)
                               ? "bg-green-500 border-green-400 shadow-lg shadow-green-500/50"
-                              : "bg-slate-900 border-slate-700 hover:bg-slate-800"
+                              : selectedNote === note
+                                ? "bg-yellow-400 border-yellow-500 shadow-lg shadow-yellow-500/50"
+                                : "bg-slate-900 border-slate-700 hover:bg-slate-800"
                         }
                       `}
                       style={{ left: `${position}px` }}
                       onMouseDown={() => handleMouseDown(note)}
-                      onMouseUp={() => handleMouseLeave(note)}
-                      onMouseLeave={() => handleMouseLeave(note)}
                     >
                       <span className="text-xs text-white mt-auto block pb-2 font-medium">{note}</span>
                     </button>
@@ -312,7 +364,6 @@ export default function PianoApp() {
                 if (synthRef.current) {
                   synthRef.current.releaseAll()
                 }
-                setActiveNotes(new Set())
               }}
               className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
             >
@@ -335,7 +386,7 @@ export default function PianoApp() {
                         synthRef.current.triggerRelease(note)
                       }
                     })
-                    setSelectedChordNotes(new Set())
+                    setSelectedChordNotes(new Set)
                     setActiveNotes((prev) => {
                       const newSet = new Set(prev)
                       selectedChordNotes.forEach((note) => newSet.delete(note))
