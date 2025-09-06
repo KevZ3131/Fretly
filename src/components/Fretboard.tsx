@@ -4,8 +4,8 @@ import React, { useRef, useState, useEffect } from "react";
 import * as Tone from "tone"
 
 const STANDARD_TUNING_MIDI = [64, 59, 55, 50, 45, 40];
-const FRETS = 12;
-const DOT_FRETS = [3, 5, 7, 9, 12];
+const FRETS = 24;
+const DOT_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
 
 function midiToFrequency(midi: number) {
     return 440 * Math.pow(2, (midi - 69) / 12);
@@ -24,6 +24,7 @@ export default function FretlyGuitar() {
     );
     const synthRef = useRef<Tone.Sampler | null>(null);
     const [isAudioStarted, setIsAudioStarted] = useState(false);
+    const [selectedChordFrets, setSelectedChordFrets] = useState<{ stringIndex: number, fretIndex: number }[]>([]);
 
     useEffect(() => {
         synthRef.current = new Tone.Sampler({
@@ -91,7 +92,12 @@ export default function FretlyGuitar() {
                 if (fretState?.selected === true) {
                     const fretState = newMap.get(fretIndex) ?? {};
                     newMap.set(fretIndex, { ...fretState, ...updates, selected: false });
-                    newBoard[stringIndex] = newMap;setTimeout(() => {
+                    newBoard[stringIndex] = newMap;
+                    // Update selectedChordFrets state
+                    setSelectedChordFrets(prev =>
+                        prev.filter(f => !(f.stringIndex === stringIndex && f.fretIndex === fretIndex))
+                    );
+                    setTimeout(() => {
                         playSelectedChord(newBoard);
                     }, 0);
                     return newBoard;
@@ -107,6 +113,15 @@ export default function FretlyGuitar() {
             newMap.set(fretIndex, { ...oldState, ...updates });
             newBoard[stringIndex] = newMap;
 
+            // Update selectedChordFrets state
+            if (updates.selected) {
+                setSelectedChordFrets(prev => {
+                    // Remove any previous selection for this string
+                    const filtered = prev.filter(f => f.stringIndex !== stringIndex);
+                    return [...filtered, { stringIndex, fretIndex }];
+                });
+            }
+
             // Play chord if selecting
             if (updates.selected) {
                 setTimeout(() => {
@@ -116,6 +131,33 @@ export default function FretlyGuitar() {
 
             return newBoard;
         });
+    }
+
+    // Replay chord
+    function replayChord() {
+        if (!synthRef.current) return;
+        selectedChordFrets.forEach(({ stringIndex, fretIndex }) => {
+            const midi = getMidiForStringFret(stringIndex, fretIndex);
+            const freq = midiToFrequency(midi);
+            synthRef.current!.triggerAttackRelease(freq, "1.2");
+        });
+    }
+
+    // Clear chord
+    function clearChord() {
+        setFretboard(prev => {
+            const newBoard = prev.map((stringMap, si) => {
+                const newMap = new Map(stringMap);
+                for (const [fi, state] of newMap.entries()) {
+                    if (state.selected) {
+                        newMap.set(fi, { ...state, selected: false });
+                    }
+                }
+                return newMap;
+            });
+            return newBoard;
+        });
+        setSelectedChordFrets([]);
     }
 
     function isSelected(stringIndex: number, fretIndex: number): boolean {
@@ -213,7 +255,7 @@ export default function FretlyGuitar() {
                             const end = ((fret + 1) / (FRETS + 1)) * 100;
                             const left = (start + end) / 2;
 
-                            const isDouble = fret === 12;
+                            const isDouble = (fret === 12 || fret === 24);
                             const dotElements = isDouble ? [{ top: "33%" }, { top: "67%" }] : [{ top: "50%" }];
 
                             return (
@@ -225,7 +267,6 @@ export default function FretlyGuitar() {
                             );
                         })}
                     </div>
-
                 </div>
 
                 {/* Fret numbers below the fretboard */}
@@ -235,8 +276,20 @@ export default function FretlyGuitar() {
                     ))}
                 </div>
 
-                <div className="mt-3 text-sm text-[#efeae0]">
-                    Click any fret (or open string) to play the note. Open string = fret 0. Standard tuning: high e - B - G - D - A - low E (top to bottom).
+                {/* Replay/Clear Chord Buttons */}
+                <div className="mt-4 flex gap-4 justify-center">
+                    <button
+                        onClick={replayChord}
+                        className="bg-blue-700 border border-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    >
+                        Replay Chord
+                    </button>
+                    <button
+                        onClick={clearChord}
+                        className="bg-green-700 border border-green-600 text-white px-4 py-2 rounded hover:bg-green-600"
+                    >
+                        Clear Chord ({selectedChordFrets.length} notes)
+                    </button>
                 </div>
             </div>
         </div>
