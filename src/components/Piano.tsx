@@ -315,7 +315,7 @@ export default function PianoApp() {
                     `}
                     onMouseDown={() => handleMouseDown(note)}
                   >
-                    <span className="text-xs text-slate-600 mt-auto block pb-4 font-medium">{note}</span>
+                    <span className="text-xs text-slate-600 mt-auto block pb-4 font-medium" style={{ "position": "relative", "bottom": "calc(-50% + 10px)" }}>{note}</span>
                   </button>
                 ))}
               </div>
@@ -344,7 +344,7 @@ export default function PianoApp() {
                       style={{ left: `${position}px` }}
                       onMouseDown={() => handleMouseDown(note)}
                     >
-                      <span className="text-xs text-white mt-auto block pb-2 font-medium">{note}</span>
+                      <span className="text-xs text-white mt-auto block pb-2 font-medium" style={{ "position": "relative", "bottom": "calc(-50% + 10px)" }}>{note}</span>
                     </button>
                   )
                 })}
