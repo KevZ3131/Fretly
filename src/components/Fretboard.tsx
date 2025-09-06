@@ -227,7 +227,10 @@ export default function FretlyGuitar() {
     return (
         <div className="p-6 flex flex-col items-center gap-4 bg-slate-900 min-h-screen">
             <div className="relative bg-slate-800 rounded-2xl shadow-lg p-4 w-full max-w-full overflow-x-auto border border-slate-700">
-                <div className="relative bg-gradient-to-b from-[#4a3f34] to-[#3b2f24] rounded-lg overflow-hidden" style={{ height: 260, minWidth: "960px" }}>
+                <div
+                    className="relative bg-gradient-to-b from-[#4a3f34] to-[#3b2f24] rounded-lg overflow-hidden"
+                    style={{ height: 170, minWidth: "700px" }}
+                >
 
                     {/* Fretlines */}
                     <div className="absolute inset-0">
@@ -266,7 +269,13 @@ export default function FretlyGuitar() {
                                                     key={`cell-${si}-${fi}`}
                                                     onClick={() => onFretClick(si, fi)}
                                                     className="absolute h-full focus:outline-none focus:ring-0 bg-transparent group"
-                                                    style={{ left: `${start}%`, width: `${width}%`, zIndex: 3 }}
+                                                    style={{
+                                                        left: `${start}%`,
+                                                        width: `${width}%`,
+                                                        zIndex: 3,
+                                                        top: "50%",
+                                                        transform: "translateY(-50%)"
+                                                    }}
                                                     title={`String ${si + 1} — Fret ${fi}`}
                                                     onMouseEnter={() => {updateFret(si, fi, { highlighted: true })}}
                                                     onMouseLeave={() => {updateFret(si, fi, { highlighted: false })}}
@@ -274,8 +283,8 @@ export default function FretlyGuitar() {
                                                     <div
                                                         className={`${hasAnyState(si, fi) ? "flex" : "hidden group-hover:flex"}`}
                                                         style={{
-                                                            width: "2rem",
-                                                            height: "2rem",
+                                                            width: "1.8rem",
+                                                            height: "1.8rem",
                                                             borderRadius: "100%",
                                                             borderWidth: `${1.5 + thickness / 4.0}px`,
                                                             borderColor: "#64748b",
@@ -305,9 +314,21 @@ export default function FretlyGuitar() {
                                                             fontWeight: "bold",
                                                             fontSize: "0.95rem",
                                                             color: "#fff",
+                                                            position: "relative",
                                                         }}
                                                     >
-                                                        {noteName}
+                                                        <span
+                                                            style={{
+                                                                width: "100%",
+                                                                textAlign: "center",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                height: "100%",
+                                                                fontWeight: "bold",
+                                                            }}
+                                                        >
+                                                            {noteName}
+                                                        </span>
                                                     </div>
                                                 </button>
                                             );
@@ -340,7 +361,7 @@ export default function FretlyGuitar() {
                 </div>
 
                 {/* Fret numbers below the fretboard */}
-                <div className="mt-2 flex justify-between px-2 text-xs text-slate-200 min-w-[960px]">
+                <div className="mt-2 flex justify-between px-2 text-xs text-slate-200 min-w-[700px]">
                     {Array.from({ length: FRETS + 1 }).map((_, fi) => (
                         <div key={`fnum-${fi}`} className="flex-1 text-center">{fi}</div>
                     ))}
