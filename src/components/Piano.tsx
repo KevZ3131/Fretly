@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import * as Tone from "tone"
 import { useStore } from "@/store/store"
 
@@ -230,7 +229,7 @@ export default function PianoApp() {
         }
 
         // Compute new chord notes set
-        let newSet = new Set(selectedChordNotes)
+        const newSet = new Set(selectedChordNotes)
         const wasInChord = newSet.has(note)
         if (wasInChord) {
           newSet.delete(note)
@@ -246,7 +245,7 @@ export default function PianoApp() {
         setShouldPlayChord(newSet)
         return
       } else if (selectedChordNotes.has(note)) {
-        let newSet = new Set(selectedChordNotes)
+        const newSet = new Set(selectedChordNotes)
         newSet.delete(note)
         setSelectedChordNotes(newSet)
         setShouldPlayChord(newSet)
@@ -262,7 +261,18 @@ export default function PianoApp() {
         setSelectedNote(note)
       }
     },
-    [playNote, isCtrlPressed, selectedNote, stopNote, activeNotes, selectedChordNotes, isSamplerLoaded, addActiveNote, removeActiveNote, clearActiveNotes],
+    [
+      playNote,
+      isCtrlPressed,
+      selectedNote,
+      stopNote,
+      activeNotes,
+      selectedChordNotes,
+      isSamplerLoaded,
+      addActiveNote,
+      removeActiveNote,
+      clearActiveNotes,
+    ],
   )
 
   const getBlackKeyPosition = (note: string, octave: string) => {
@@ -306,121 +316,116 @@ export default function PianoApp() {
   }, [selectedChordNotes, isSamplerLoaded])
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Show loading indicator if sampler not loaded */}
-        {!isSamplerLoaded && (
-          <div className="text-center text-white mb-4">
-            Loading piano samples...
-          </div>
-        )}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Virtual Piano</h1>
-          <p className="text-slate-200">
-            Click and hold keys to sustain notes • Hold Ctrl+click to select chord notes, release Ctrl to play • Scroll
-            horizontally to see all keys (C0 to E6)
-          </p>
-        </div>
+    <div className="w-full">
+      {/* Show loading indicator if sampler not loaded */}
+      {!isSamplerLoaded && <div className="text-center text-white mb-4">Loading piano samples...</div>}
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-white mb-2">Virtual Piano</h2>
+        <p className="text-slate-200 text-sm">
+          Click and hold keys to sustain notes • Hold Ctrl+click to select chord notes, release Ctrl to play • Scroll
+          horizontally to see all keys (C0 to E6)
+        </p>
+      </div>
 
-        <Card className="p-6 bg-slate-800/50 border-slate-700">
-          <div className="overflow-x-auto">
-            <div className="relative min-w-[2800px] h-64">
-              <div className="flex">
-                {whiteKeys.map((note, index) => (
-                  <button
-                    key={note}
-                    className={`
-                      w-16 h-48 border-2 border-slate-600 transition-all duration-75
-                      ${index === 0 ? "rounded-l-lg" : ""}
-                      ${index === whiteKeys.length - 1 ? "rounded-r-lg" : ""}
-                    `}
-                    style={{
-                      backgroundColor: activeNotes.has(note) ? "#60a5fa" : "#ffffff",
-                      borderColor: activeNotes.has(note) ? "#93c5fd" : "#475569",
-                      boxShadow: activeNotes.has(note) ? "0 10px 15px -3px rgba(59, 130, 246, 0.5)" : "none",
-                    }}
-                    onMouseDown={() => handleMouseDown(note)}
+      <div className="overflow-x-auto">
+        <div className="relative min-w-[2800px] h-40">
+          <div className="flex">
+            {whiteKeys.map((note, index) => (
+              <button
+                key={note}
+                className={`
+                  w-16 h-32 border-2 border-slate-600 transition-all duration-75
+                  ${index === 0 ? "rounded-l-lg" : ""}
+                  ${index === whiteKeys.length - 1 ? "rounded-r-lg" : ""}
+                `}
+                style={{
+                  backgroundColor: activeNotes.has(note) ? "#60a5fa" : "#ffffff",
+                  borderColor: activeNotes.has(note) ? "#93c5fd" : "#475569",
+                  boxShadow: activeNotes.has(note) ? "0 10px 15px -3px rgba(59, 130, 246, 0.5)" : "none",
+                }}
+                onMouseDown={() => handleMouseDown(note)}
+              >
+                <span
+                  className="text-xs text-slate-600 mt-auto block pb-4 font-medium"
+                  style={{ position: "relative", bottom: "calc(-50% + 10px)" }}
+                >
+                  {note}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="absolute top-0 left-0">
+            {blackKeys.map((note) => {
+              const octave = note.slice(-1)
+              const baseNote = note.slice(0, -1)
+              const position = getBlackKeyPosition(baseNote, octave)
+
+              return (
+                <button
+                  key={note}
+                  className={`
+                    absolute w-10 h-20 rounded-b-lg border-2 transition-all duration-75
+                    ${
+                      activeNotes.has(note)
+                        ? "bg-purple-500 border-purple-400 shadow-lg shadow-purple-500/50"
+                        : selectedChordNotes.has(note)
+                          ? "bg-green-500 border-green-400 shadow-lg shadow-green-500/50"
+                          : selectedNote === note
+                            ? "bg-yellow-400 border-yellow-500 shadow-lg shadow-yellow-500/50"
+                            : "bg-slate-900 border-slate-700 hover:bg-slate-800"
+                    }
+                  `}
+                  style={{ left: `${position}px` }}
+                  onMouseDown={() => handleMouseDown(note)}
+                >
+                  <span
+                    className="text-xs text-white mt-auto block pb-2 font-medium"
+                    style={{ position: "relative", bottom: "calc(-50% + 10px)" }}
                   >
-                    <span className="text-xs text-slate-600 mt-auto block pb-4 font-medium" style={{ "position": "relative", "bottom": "calc(-50% + 10px)" }}>{note}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="absolute top-0 left-0">
-                {blackKeys.map((note) => {
-                  const octave = note.slice(-1)
-                  const baseNote = note.slice(0, -1)
-                  const position = getBlackKeyPosition(baseNote, octave)
-
-                  return (
-                    <button
-                      key={note}
-                      className={`
-                        absolute w-10 h-32 rounded-b-lg border-2 transition-all duration-75
-                        ${
-                          activeNotes.has(note)
-                            ? "bg-purple-500 border-purple-400 shadow-lg shadow-purple-500/50"
-                            : selectedChordNotes.has(note)
-                              ? "bg-green-500 border-green-400 shadow-lg shadow-green-500/50"
-                              : selectedNote === note
-                                ? "bg-yellow-400 border-yellow-500 shadow-lg shadow-yellow-500/50"
-                                : "bg-slate-900 border-slate-700 hover:bg-slate-800"
-                        }
-                      `}
-                      style={{ left: `${position}px` }}
-                      onMouseDown={() => handleMouseDown(note)}
-                    >
-                      <span className="text-xs text-white mt-auto block pb-2 font-medium" style={{ "position": "relative", "bottom": "calc(-50% + 10px)" }}>{note}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+                    {note}
+                  </span>
+                </button>
+              )
+            })}
           </div>
-
-          <div className="mt-6 flex justify-center gap-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (synthRef.current) {
-                  synthRef.current.releaseAll()
-                }
-              }}
-              className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
-            >
-              Stop All Notes
-            </Button>
-            <Button
-              variant="outline"
-              onClick={replayChord}
-              className="bg-blue-700 border-blue-600 text-white hover:bg-blue-600"
-            >
-              Replay Chord
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                selectedChordNotes.forEach((note) => {
-                  if (synthRef.current) {
-                    synthRef.current.triggerRelease(note)
-                  }
-                })
-                setSelectedChordNotes(new Set())
-                selectedChordNotes.forEach((note) => removeActiveNote(note))
-              }}
-              className="bg-green-700 border-green-600 text-white hover:bg-green-600"
-            >
-              Clear Chord ({selectedChordNotes.size} notes)
-            </Button>
-          </div>
-        </Card>
-
-        <div className="mt-6 text-center text-slate-300 text-sm">
-          <p>
-            Hold multiple keys simultaneously for chords • Hold Ctrl+click to select chord notes, release Ctrl to play •
-            Extended range: C0 to E6 (43 white keys, 30 black keys)
-          </p>
         </div>
+      </div>
+
+      <div className="mt-4 flex justify-center gap-4">
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (synthRef.current) {
+              synthRef.current.releaseAll()
+            }
+          }}
+          className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
+        >
+          Stop All Notes
+        </Button>
+        <Button
+          variant="outline"
+          onClick={replayChord}
+          className="bg-blue-700 border-blue-600 text-white hover:bg-blue-600"
+        >
+          Replay Chord
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            selectedChordNotes.forEach((note) => {
+              if (synthRef.current) {
+                synthRef.current.triggerRelease(note)
+              }
+            })
+            setSelectedChordNotes(new Set())
+            selectedChordNotes.forEach((note) => removeActiveNote(note))
+          }}
+          className="bg-green-700 border-green-600 text-white hover:bg-green-600"
+        >
+          Clear Chord ({selectedChordNotes.size} notes)
+        </Button>
       </div>
     </div>
   )
