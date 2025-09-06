@@ -1,8 +1,11 @@
+import PianoApp from "@/components/Piano";
+import FretlyGuitar from "@/components/Fretboard";
+
 export default function Home() {
   return (
     <main>
-      <h1>Fretly</h1>
-      <p>Welcome to Fretly - Your Guitar Learning Companion</p>
+      <PianoApp />
+      <FretlyGuitar />
     </main>
   );
 }
