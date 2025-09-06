@@ -2,10 +2,12 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import * as Tone from "tone"
+import { useStore } from "@/store/store"
 
 const STANDARD_TUNING_MIDI = [64, 59, 55, 50, 45, 40];
 const FRETS = 24;
 const DOT_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 function midiToFrequency(midi: number) {
     return 440 * Math.pow(2, (midi - 69) / 12);
@@ -18,7 +20,7 @@ type FretState = {
 };
 
 export default function FretlyGuitar() {
-    const audioCtxRef = useRef<AudioContext | null>(null);
+    const { activeNotes } = useStore();
     const [fretboard, setFretboard] = useState<Map<number, FretState>[]>(
         () => Array.from({ length: 6 }, () => new Map())
     );
@@ -58,8 +60,15 @@ export default function FretlyGuitar() {
             }
     }, [])
 
+    // Highlight notes from activeNotes in global store
+
     function getMidiForStringFret(stringIndex: number, fretIndex: number): number {
         return STANDARD_TUNING_MIDI[stringIndex] + fretIndex;
+    }
+
+    function getNoteName(midi: number): string {
+        const noteIndex = midi % 12;
+        return NOTE_NAMES[noteIndex];
     }
 
     function playSelectedChord(currentFretboard: Map<number, FretState>[]) {
@@ -184,8 +193,8 @@ export default function FretlyGuitar() {
     const STRING_THICKNESSES = [1.5, 2, 2.5, 3, 3.5, 4];
 
     return (
-        <div className="p-6 flex flex-col items-center gap-4">
-            <div className="relative bg-[#2b2b2b] rounded-2xl shadow-lg p-4 w-full max-w-full overflow-x-auto">
+        <div className="p-6 flex flex-col items-center gap-4 bg-slate-900 min-h-screen">
+            <div className="relative bg-slate-800 rounded-2xl shadow-lg p-4 w-full max-w-full overflow-x-auto border border-slate-700">
                 <div className="relative bg-gradient-to-b from-[#4a3f34] to-[#3b2f24] rounded-lg overflow-hidden" style={{ height: 260, minWidth: "960px" }}>
 
                     {/* Fretlines */}
@@ -218,6 +227,8 @@ export default function FretlyGuitar() {
                                             const start = (fi / (FRETS + 1)) * 100;
                                             const end = ((fi + 1) / (FRETS + 1)) * 100;
                                             const width = end - start;
+                                            const midi = getMidiForStringFret(si, fi);
+                                            const noteName = getNoteName(midi);
                                             return (
                                                 <button
                                                     key={`cell-${si}-${fi}`}
@@ -227,18 +238,38 @@ export default function FretlyGuitar() {
                                                     title={`String ${si + 1} — Fret ${fi}`}
                                                 >
                                                     <div
-                                                        className={`${hasAnyState(si, fi) ? "display:block" : "hidden group-hover:block"}`}
+                                                        className={`${hasAnyState(si, fi) ? "flex" : "hidden group-hover:flex"}`}
                                                         style={{
                                                             width: "2rem",
                                                             height: "2rem",
                                                             borderRadius: "100%",
                                                             borderWidth: `${1.5 + thickness / 4.0}px`,
-                                                            borderColor: "#ddd",
-                                                            backgroundColor: `${isSelected(si, fi) ? "rgb(37 99 235)" : "#4a3f34"}`,
+                                                            borderColor: "#64748b",
+                                                            backgroundColor: isSelected(si, fi)
+                                                                ? "#3b82f6"
+                                                                : "#22c55e",
+                                                            opacity: isSelected(si, fi)
+                                                                ? 1
+                                                                : isHighlighted(si, fi)
+                                                                ? 0.7
+                                                                : 0.3,
                                                             marginLeft: "auto",
                                                             marginRight: "auto",
+                                                            boxShadow: isSelected(si, fi)
+                                                                ? "0 0 6px 1px #3b82f6"
+                                                                : isHighlighted(si, fi)
+                                                                ? "0 0 4px 0.5px #22c55e"
+                                                                : "none",
+                                                            // display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            fontWeight: "bold",
+                                                            fontSize: "0.95rem",
+                                                            color: "#fff",
                                                         }}
-                                                    ></div>
+                                                    >
+                                                        {noteName}
+                                                    </div>
                                                 </button>
                                             );
                                         })}
@@ -261,7 +292,7 @@ export default function FretlyGuitar() {
                             return (
                                 <div key={`dot-${fret}`} style={{ left: `${left}%` }} className="absolute transform -translate-x-1/2 w-0 h-full flex items-center justify-center">
                                     {dotElements.map((d, i) => (
-                                        <div key={i} style={{ top: d.top }} className="absolute -translate-y-1/2 w-5 h-5 rounded-full bg-[#f3f1e7] shadow" />
+                                        <div key={i} style={{ top: d.top }} className="absolute -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200 shadow" />
                                     ))}
                                 </div>
                             );
@@ -270,7 +301,7 @@ export default function FretlyGuitar() {
                 </div>
 
                 {/* Fret numbers below the fretboard */}
-                <div className="mt-2 flex justify-between px-2 text-xs text-[#f0efd7] min-w-[960px]">
+                <div className="mt-2 flex justify-between px-2 text-xs text-slate-200 min-w-[960px]">
                     {Array.from({ length: FRETS + 1 }).map((_, fi) => (
                         <div key={`fnum-${fi}`} className="flex-1 text-center">{fi}</div>
                     ))}
