@@ -179,6 +179,8 @@ export default function PianoApp() {
       if (synthRef.current && !activeNotes.has(note)) {
         synthRef.current.triggerAttack(note)
         addActiveNote(note)
+      } else {
+        removeActiveNote(note)
       }
     },
     [startAudio, activeNotes, addActiveNote],
