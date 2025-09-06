@@ -247,9 +247,8 @@ export default function FretlyGuitar() {
               )
             })}
           </div>
-
           {/* Strings and fret buttons */}
-          <div className="absolute inset-0 flex flex-col justify-between py-0 px-0">
+          <div className="absolute inset-0 flex flex-col justify-between py-0 px-0 border border-slate-700">
             {Array.from({ length: strings }).map((_, si) => {
               const thickness = STRING_THICKNESSES[si]
               return (
@@ -344,7 +343,7 @@ export default function FretlyGuitar() {
               )
             })}
           </div>
-
+        
           {/* Dot inlays */}
           <div className="absolute inset-0 pointer-events-none">
             {DOT_FRETS.map((fret) => {
@@ -373,7 +372,6 @@ export default function FretlyGuitar() {
             })}
           </div>
         </div>
-
         {/* Fret numbers below the fretboard */}
         <div className="mt-2 flex justify-between px-2 text-xs text-slate-200 min-w-[700px]">
           {Array.from({ length: FRETS + 1 }).map((_, fi) => (

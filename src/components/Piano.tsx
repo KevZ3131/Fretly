@@ -85,7 +85,6 @@ const blackKeys = [
   "G#5",
   "A#5",
   "C#6",
-  "D#6",
 ]
 
 export default function PianoApp() {
@@ -97,6 +96,8 @@ export default function PianoApp() {
   const [isAudioStarted, setIsAudioStarted] = useState(false)
   const [shouldPlayChord, setShouldPlayChord] = useState<Set<string> | null>(null)
   const [isSamplerLoaded, setIsSamplerLoaded] = useState(false)
+
+  let error: number = 2; 
 
   useEffect(() => {
     synthRef.current = new Tone.Sampler({
@@ -123,7 +124,6 @@ export default function PianoApp() {
         "F#5": "Fs5.mp3",
         A5: "A5.mp3",
         C6: "C6.mp3",
-        "D#6": "Ds6.mp3",
         "F#6": "Fs6.mp3",
         A6: "A6.mp3",
         C7: "C7.mp3",
@@ -179,7 +179,7 @@ export default function PianoApp() {
   useEffect(() => {
     if (shouldPlayChord && synthRef.current) {
       const timeoutId = setTimeout(() => {
-        synthRef.current?.releaseAll()
+        // synthRef.current?.releaseAll() // <-- Remove this line
         shouldPlayChord.forEach((chordNote) => {
           if (synthRef.current) {
             synthRef.current.triggerAttackRelease(chordNote, "2n")
@@ -275,39 +275,67 @@ export default function PianoApp() {
     ],
   )
 
-  const getBlackKeyPosition = (note: string, octave: string) => {
-    const baseNote = note.replace("#", "")
-    const octaveNumber = Number.parseInt(octave)
-
-    const positions = {
-      C: 44,
-      D: 108,
-      F: 236,
-      G: 300,
-      A: 364,
+  const whiteKeyWidth = 64; // width of a white key
+  const blackKeyOffset = {
+    "C#": 0.7,
+    "D#": 1.7,
+    "F#": 3.7,
+    "G#": 4.7,
+    "A#": 5.7,
+  };
+  
+  const getBlackKeyPosition = (note: string, octave: number) => {
+    const baseNote = note.includes("#") ? note : null;
+    
+    if (!baseNote) return 0;
+    
+    // Number of white keys before this octave
+    const whiteKeysPerOctave = 7;
+    const octaveOffset = octave * whiteKeysPerOctave * whiteKeyWidth;
+  
+    let keyOffset = blackKeyOffset[baseNote as keyof typeof blackKeyOffset] * (whiteKeyWidth / 1); // fine-tune if needed
+    keyOffset = keyOffset - error
+    error = error + 2
+    if (note == "D#" && octave == 0) {
+      error = error + 1
+    }
+    else if (note == "A#" && octave == 0) {
+      error = error + 1
+    }
+    else if (note == "D#" && octave == 1) {
+      error = error + 1
+    }
+    else if (note == "A#" && octave == 1) {
+      error = error + 1
+    }
+    else if (note == "A#" && octave == 2) {
+      error = error + 1
+    }
+    else if (note == "D#" && octave == 3) {
+      error = error + 1
+    }
+    else if (note == "A#" && octave == 3) {
+      error = error + 1
+    }
+    else if (note == "D#" && octave == 4) {
+      error = error + 1
+    }
+    else if (note == "A#" && octave == 4) {
+      error = error + 1
+    }
+    else if (note == "D#" && octave == 5) {
+      error = error + 1
+    }
+    else if (note == "A#" && octave == 5) {
+      error = error + 1
     }
 
-    // Calculate octave offset starting from C0
-    let octaveOffset = (octaveNumber - 0) * 448
-
-    // Apply fine-tuning adjustments for specific octaves
-    if (octaveNumber >= 1) {
-      octaveOffset = (octaveNumber - 0) * 448
-    }
-    if (octaveNumber >= 4) {
-      octaveOffset = (octaveNumber - 0) * 448 - 3
-    }
-    if (octaveNumber >= 5) {
-      octaveOffset = (octaveNumber - 0) * 448 - 6
-    }
-
-    const basePosition = positions[baseNote as keyof typeof positions] || 0
-
-    return basePosition + octaveOffset
-  }
+    return octaveOffset + keyOffset;
+  };
 
   const replayChord = useCallback(() => {
     if (!isSamplerLoaded) return
+    // synthRef.current?.releaseAll() // <-- Remove this line if present
     selectedChordNotes.forEach((note) => {
       if (synthRef.current) {
         synthRef.current.triggerAttackRelease(note, "2n")
@@ -327,7 +355,7 @@ export default function PianoApp() {
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto scrollbar-custom">
         <div className="relative min-w-[2800px] h-40">
           <div className="flex">
             {whiteKeys.map((note, index) => (
@@ -359,7 +387,7 @@ export default function PianoApp() {
             {blackKeys.map((note) => {
               const octave = note.slice(-1)
               const baseNote = note.slice(0, -1)
-              const position = getBlackKeyPosition(baseNote, octave)
+              const position = getBlackKeyPosition(baseNote, Number(octave))
 
               return (
                 <button
@@ -427,6 +455,32 @@ export default function PianoApp() {
           Clear Chord ({selectedChordNotes.size} notes)
         </Button>
       </div>
+
+      <style jsx>{`
+        .scrollbar-custom {
+          scrollbar-width: thin;
+          scrollbar-color: #475569 #1e293b;
+        }
+        
+        .scrollbar-custom::-webkit-scrollbar {
+          height: 8px;
+        }
+        
+        .scrollbar-custom::-webkit-scrollbar-track {
+          background: #1e293b;
+          border-radius: 4px;
+        }
+        
+        .scrollbar-custom::-webkit-scrollbar-thumb {
+          background: #475569;
+          border-radius: 4px;
+          border: 1px solid #334155;
+        }
+        
+        .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
+        }
+      `}</style>
     </div>
   )
 }
