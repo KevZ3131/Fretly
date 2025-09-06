@@ -271,208 +271,228 @@ export default function FretlyGuitar() {
     const lite = false
 
     return (
-        <div className="p-6 flex flex-row items-start gap-6 bg-slate-900 min-h-screen">
-            {/* Guitar fretboard box (everything inside here) */}
-            <div
-                className="relative bg-slate-800 rounded-2xl shadow-lg p-4 border border-slate-700 flex flex-col"
-                style={{
-                    minWidth: "0",
-                    flex: "1 1 auto",
-                    maxWidth: "100vw",
-                }}
-            >
-                {/* Fretboard + chord chart side by side */}
-                <div className="flex flex-row items-start gap-6">
-                    {/* Scrollable fretboard + numbers */}
-                    <div className="overflow-x-auto flex-1">
-                        <div
-                            className="relative bg-gradient-to-b from-[#4a3f34] to-[#3b2f24] rounded-lg overflow-hidden"
-                            style={{ height: 180, minWidth: "1075px", width: "100%" }}
-                        >
-                            {/* Fretlines */}
-                            <div className="absolute inset-0">
-                                {Array.from({ length: FRETS + 2 }).map((_, ci) => {
-                                    const left = (ci / (FRETS + 1)) * 100;
-                                    return (
-                                        <div
-                                            key={`fretline-${ci}`}
-                                            className={"absolute top-0 bottom-0 " + (ci === 0 ? "bg-black" : "bg-[#bfb39b]")}
-                                            style={{ left: `${left}%`, width: ci === 0 ? 6 : 2, transform: "translateX(-50%)" }}
-                                        />
-                                    );
-                                })}
-                            </div>
+        <div className="w-full">
+            <div className="text-center mb-6">
+                <p className="text-slate-200 text-sm">
+                    Click frets to select chord notes • Notes highlight based on piano selection
+                </p>
+            </div>
+            {/* Fretboard + chord chart side by side */}
+            <div className="flex flex-row items-start gap-6">
+                {/* Scrollable fretboard + numbers */}
+                <div className="overflow-x-auto flex-1 scrollbar-custom">
+                    <div
+                        className="relative bg-gradient-to-b from-[#4a3f34] to-[#3b2f24] rounded-lg overflow-hidden"
+                        style={{ height: 180, minWidth: "1075px", width: "100%" }}
+                    >
+                        {/* Fretlines */}
+                        <div className="absolute inset-0">
+                            {Array.from({ length: FRETS + 2 }).map((_, ci) => {
+                                const left = (ci / (FRETS + 1)) * 100;
+                                return (
+                                    <div
+                                        key={`fretline-${ci}`}
+                                        className={"absolute top-0 bottom-0 " + (ci === 0 ? "bg-black" : "bg-[#bfb39b]")}
+                                        style={{ left: `${left}%`, width: ci === 0 ? 6 : 2, transform: "translateX(-50%)" }}
+                                    />
+                                );
+                            })}
+                        </div>
 
-                            {/* Strings and fret buttons */}
-                            <div className="absolute inset-0 flex flex-col justify-between py-0 px-0">
-                                {Array.from({ length: strings }).map((_, si) => {
-                                    const thickness = STRING_THICKNESSES[si];
-                                    return (
-                                        <div key={`string-row-${si}`} className="relative flex items-center" style={{ height: `${100 / strings}%` }}>
-                                            {/* String line spanning full width */}
-                                            <div className="absolute left-0 right-0 top-1/2 transform -translate-y-1/2">
-                                                <div className="w-full" style={{ borderTop: `${thickness}px solid #ddd` }} />
-                                            </div>
-                                            {/* Fret buttons */}
-                                            <div className="absolute left-0 right-0 top-0 bottom-0">
-                                                {Array.from({ length: FRETS + 1 }).map((_, fi) => {
-                                                    const start = (fi / (FRETS + 1)) * 100;
-                                                    const end = ((fi + 1) / (FRETS + 1)) * 100;
-                                                    const width = end - start;
-                                                    const midi = getMidiForStringFret(si, fi);
-                                                    const noteName = getNoteName(midi);
-                                                    return (
-                                                        <button
-                                                            key={`cell-${si}-${fi}`}
-                                                            onClick={() => onFretClick(si, fi)}
-                                                            className="absolute h-full focus:outline-none focus:ring-0 bg-transparent group"
+                        {/* Strings and fret buttons */}
+                        <div className="absolute inset-0 flex flex-col justify-between py-0 px-0">
+                            {Array.from({ length: strings }).map((_, si) => {
+                                const thickness = STRING_THICKNESSES[si];
+                                return (
+                                    <div key={`string-row-${si}`} className="relative flex items-center" style={{ height: `${100 / strings}%` }}>
+                                        {/* String line spanning full width */}
+                                        <div className="absolute left-0 right-0 top-1/2 transform -translate-y-1/2">
+                                            <div className="w-full" style={{ borderTop: `${thickness}px solid #ddd` }} />
+                                        </div>
+                                        {/* Fret buttons */}
+                                        <div className="absolute left-0 right-0 top-0 bottom-0">
+                                            {Array.from({ length: FRETS + 1 }).map((_, fi) => {
+                                                const start = (fi / (FRETS + 1)) * 100;
+                                                const end = ((fi + 1) / (FRETS + 1)) * 100;
+                                                const width = end - start;
+                                                const midi = getMidiForStringFret(si, fi);
+                                                const noteName = getNoteName(midi);
+                                                return (
+                                                    <button
+                                                        key={`cell-${si}-${fi}`}
+                                                        onClick={() => onFretClick(si, fi)}
+                                                        className="absolute h-full focus:outline-none focus:ring-0 bg-transparent group"
+                                                        style={{
+                                                            left: `${start}%`,
+                                                            width: `${width}%`,
+                                                            zIndex: 3,
+                                                            top: "50%",
+                                                            transform: "translateY(-50%)"
+                                                        }}
+                                                        title={`String ${si + 1} — Fret ${fi}`}
+                                                        onMouseEnter={() => {updateFret(si, fi, { highlighted: true })}}
+                                                        onMouseLeave={() => {updateFret(si, fi, { highlighted: false })}}
+                                                    >
+                                                        <div
+                                                            className={`${hasAnyState(si, fi) ? "flex" : "hidden group-hover:flex"}`}
                                                             style={{
-                                                                left: `${start}%`,
-                                                                width: `${width}%`,
-                                                                zIndex: 3,
-                                                                top: "50%",
-                                                                transform: "translateY(-50%)"
+                                                                width: "1.8rem",
+                                                                height: "1.8rem",
+                                                                borderRadius: "100%",
+                                                                borderWidth: `${1.5 + thickness / 4.0}px`,
+                                                                borderColor: "#64748b",
+                                                                backgroundColor: isSelected(si, fi)
+                                                                    ? "#3b82f6"
+                                                                    : isHighlighted(si, fi)
+                                                                    ? "#22c55e"
+                                                                    : isVoicing(si, fi)
+                                                                    ? "#f59e0b"
+                                                                    : "#22c55e",
+                                                                opacity: isSelected(si, fi)
+                                                                    ? 1
+                                                                    : (isHighlighted(si, fi) || isVoicing(si, fi))
+                                                                    ? 0.85
+                                                                    : 0.3,
+                                                                marginLeft: "auto",
+                                                                marginRight: "auto",
+                                                                boxShadow: isSelected(si, fi)
+                                                                    ? "0 0 6px 1px #3b82f6"
+                                                                    : isHighlighted(si, fi)
+                                                                    ? "0 0 4px 0.5px #22c55e"
+                                                                    : isVoicing(si, fi)
+                                                                    ? "0 0 4px 0.5px #f59e0b"
+                                                                    : "none",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                fontWeight: "bold",
+                                                                fontSize: "0.95rem",
+                                                                color: "#fff",
+                                                                position: "relative",
                                                             }}
-                                                            title={`String ${si + 1} — Fret ${fi}`}
-                                                            onMouseEnter={() => {updateFret(si, fi, { highlighted: true })}}
-                                                            onMouseLeave={() => {updateFret(si, fi, { highlighted: false })}}
                                                         >
-                                                            <div
-                                                                className={`${hasAnyState(si, fi) ? "flex" : "hidden group-hover:flex"}`}
+                                                            <span
                                                                 style={{
-                                                                    width: "1.8rem",
-                                                                    height: "1.8rem",
-                                                                    borderRadius: "100%",
-                                                                    borderWidth: `${1.5 + thickness / 4.0}px`,
-                                                                    borderColor: "#64748b",
-                                                                    backgroundColor: isSelected(si, fi)
-                                                                        ? "#3b82f6"
-                                                                        : isHighlighted(si, fi)
-                                                                        ? "#22c55e"
-                                                                        : isVoicing(si, fi)
-                                                                        ? "#f59e0b"
-                                                                        : "#22c55e",
-                                                                    opacity: isSelected(si, fi)
-                                                                        ? 1
-                                                                        : (isHighlighted(si, fi) || isVoicing(si, fi))
-                                                                        ? 0.85
-                                                                        : 0.3,
-                                                                    marginLeft: "auto",
-                                                                    marginRight: "auto",
-                                                                    boxShadow: isSelected(si, fi)
-                                                                        ? "0 0 6px 1px #3b82f6"
-                                                                        : isHighlighted(si, fi)
-                                                                        ? "0 0 4px 0.5px #22c55e"
-                                                                        : isVoicing(si, fi)
-                                                                        ? "0 0 4px 0.5px #f59e0b"
-                                                                        : "none",
+                                                                    width: "100%",
+                                                                    textAlign: "center",
                                                                     alignItems: "center",
                                                                     justifyContent: "center",
+                                                                    height: "100%",
                                                                     fontWeight: "bold",
-                                                                    fontSize: "0.95rem",
-                                                                    color: "#fff",
-                                                                    position: "relative",
                                                                 }}
                                                             >
-                                                                <span
-                                                                    style={{
-                                                                        width: "100%",
-                                                                        textAlign: "center",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                        height: "100%",
-                                                                        fontWeight: "bold",
-                                                                    }}
-                                                                >
-                                                                    {noteName}
-                                                                </span>
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
+                                                                {noteName}
+                                                            </span>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Dot inlays */}
-                            <div className="absolute inset-0 pointer-events-none">
-                                {DOT_FRETS.map((fret) => {
-                                    const start = (fret / (FRETS + 1)) * 100;
-                                    const end = ((fret + 1) / (FRETS + 1)) * 100;
-                                    const left = (start + end) / 2;
-
-                                    const isDouble = (fret === 12 || fret === 24);
-                                    const dotElements = isDouble ? [{ top: "33%" }, { top: "67%" }] : [{ top: "50%" }];
-
-                                    return (
-                                        <div key={`dot-${fret}`} style={{ left: `${left}%` }} className="absolute transform -translate-x-1/2 w-0 h-full flex items-center justify-center">
-                                            {dotElements.map((d, i) => (
-                                                <div key={i} style={{ top: d.top }} className="absolute -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200 shadow" />
-                                            ))}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        {/* Fret numbers below the fretboard */}
-                        <div className="mt-2 flex justify-between text-xs text-slate-200" style={{ minWidth: "1075px", width: "100%" }}>
-                            {Array.from({ length: FRETS + 1 }).map((_, fi) => (
-                                <div key={`fnum-${fi}`} className="flex-1 text-center">{fi}</div>
-                            ))}
+
+                        {/* Dot inlays */}
+                        <div className="absolute inset-0 pointer-events-none">
+                            {DOT_FRETS.map((fret) => {
+                                const start = (fret / (FRETS + 1)) * 100;
+                                const end = ((fret + 1) / (FRETS + 1)) * 100;
+                                const left = (start + end) / 2;
+
+                                const isDouble = (fret === 12 || fret === 24);
+                                const dotElements = isDouble ? [{ top: "33%" }, { top: "67%" }] : [{ top: "50%" }];
+
+                                return (
+                                    <div key={`dot-${fret}`} style={{ left: `${left}%` }} className="absolute transform -translate-x-1/2 w-0 h-full flex items-center justify-center">
+                                        {dotElements.map((d, i) => (
+                                            <div key={i} style={{ top: d.top }} className="absolute -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200 shadow" />
+                                        ))}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
-                    {/* Chord chart (fixed, not scrollable) */}
-                    {showChordChart && (
-                    <div className="flex flex-col items-center justify-start">
-                        <div
-                        className="bg-white rounded-lg shadow-lg flex items-center justify-center"
-                        style={{
-                            width: 180,
-                            height: 180,
-                            minWidth: 180,
-                            minHeight: 180,
-                        }}
-                        >
-                        <Chord
-                            chord={getChordChartFromSelectedFrets(selectedChordFrets)}
-                            instrument={instrument}
-                            lite={lite}
-                        />
-                        </div>
+                    {/* Fret numbers below the fretboard */}
+                    <div className="mt-2 flex justify-between text-xs text-slate-200" style={{ minWidth: "1075px", width: "100%" }}>
+                        {Array.from({ length: FRETS + 1 }).map((_, fi) => (
+                            <div key={`fnum-${fi}`} className="flex-1 text-center">{fi}</div>
+                        ))}
                     </div>
-                    )}
                 </div>
-                {/* Buttons + chord chart (don’t scroll) */}
-                <div className="mt-4 flex gap-6 justify-center items-start">
-                    {/* Buttons */}
-                    <div className="flex gap-4">
-                    <button
-                        onClick={replayChord}
-                        className="bg-blue-700 border border-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600"
+                {/* Chord chart (fixed, not scrollable) */}
+                {showChordChart && (
+                <div className="flex flex-col items-center justify-start">
+                    <div
+                    className="bg-white rounded-lg shadow-lg flex items-center justify-center"
+                    style={{
+                        width: 180,
+                        height: 180,
+                        minWidth: 180,
+                        minHeight: 180,
+                    }}
                     >
-                        Replay Chord
-                    </button>
-                    <button
-                        onClick={clearChord}
-                        className="bg-green-700 border border-green-600 text-white px-4 py-2 rounded hover:bg-green-600"
-                    >
-                        Clear Chord ({selectedChordFrets.length} notes)
-                    </button>
-                    <button
-                        className={`px-4 border py-2 rounded text-white transition ${
-                        showChordChart
-                            ? "bg-blue-700 hover:bg-blue-600 border-blue-500"
-                            : "bg-slate-700 hover:bg-slate-600 border-slate-500"
-                        }`}
-                        onClick={() => setShowChordChart((v) => !v)}
-                    >
-                        {showChordChart ? "Hide Chord Chart" : "Show Chord Chart"}
-                    </button>
+                    <Chord
+                        chord={getChordChartFromSelectedFrets(selectedChordFrets)}
+                        instrument={instrument}
+                        lite={lite}
+                    />
                     </div>
+                </div>
+                )}
+            </div>
+            {/* Buttons + chord chart (don’t scroll) */}
+            <div className="mt-4 flex gap-6 justify-center items-start">
+                {/* Buttons */}
+                <div className="flex gap-4">
+                <button
+                    onClick={replayChord}
+                    className="bg-blue-700 border border-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600"
+                >
+                    Replay Chord
+                </button>
+                <button
+                    onClick={clearChord}
+                    className="bg-green-700 border border-green-600 text-white px-4 py-2 rounded hover:bg-green-600"
+                >
+                    Clear Chord ({selectedChordFrets.length} notes)
+                </button>
+                <button
+                    className={`px-4 border py-2 rounded text-white transition ${
+                    showChordChart
+                        ? "bg-blue-700 hover:bg-blue-600 border-blue-500"
+                        : "bg-slate-700 hover:bg-slate-600 border-slate-500"
+                    }`}
+                    onClick={() => setShowChordChart((v) => !v)}
+                >
+                    {showChordChart ? "Hide Chord Chart" : "Show Chord Chart"}
+                </button>
                 </div>
             </div>
+            <style jsx>{`
+                .scrollbar-custom {
+                scrollbar-width: thin;
+                scrollbar-color: #475569 #1e293b;
+                }
+                
+                .scrollbar-custom::-webkit-scrollbar {
+                height: 8px;
+                }
+                
+                .scrollbar-custom::-webkit-scrollbar-track {
+                background: #1e293b;
+                border-radius: 4px;
+                }
+                
+                .scrollbar-custom::-webkit-scrollbar-thumb {
+                background: #475569;
+                border-radius: 4px;
+                border: 1px solid #334155;
+                }
+                
+                .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+                background: #64748b;
+                }
+            `}</style>
         </div>
     );
 }
