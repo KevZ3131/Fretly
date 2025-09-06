@@ -2,31 +2,11 @@
 
 import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import * as Tone from "tone"
 import { useStore } from "@/store/store"
 
 const whiteKeys = [
-  "C0",
-  "D0",
-  "E0",
-  "F0",
-  "G0",
-  "A0",
-  "B0",
-  "C1",
-  "D1",
-  "E1",
-  "F1",
-  "G1",
-  "A1",
-  "B1",
-  "C2",
-  "D2",
-  "E2",
-  "F2",
-  "G2",
-  "A2",
-  "B2",
   "C3",
   "D3",
   "E3",
@@ -49,26 +29,8 @@ const whiteKeys = [
   "A5",
   "B5",
   "C6",
-  "D6",
-  "E6",
 ]
-
 const blackKeys = [
-  "C#0",
-  "D#0",
-  "F#0",
-  "G#0",
-  "A#0",
-  "C#1",
-  "D#1",
-  "F#1",
-  "G#1",
-  "A#1",
-  "C#2",
-  "D#2",
-  "F#2",
-  "G#2",
-  "A#2",
   "C#3",
   "D#3",
   "F#3",
@@ -84,7 +46,6 @@ const blackKeys = [
   "F#5",
   "G#5",
   "A#5",
-  "C#6",
 ]
 
 export default function PianoApp() {
@@ -95,9 +56,6 @@ export default function PianoApp() {
   const synthRef = useRef<Tone.Sampler | null>(null)
   const [isAudioStarted, setIsAudioStarted] = useState(false)
   const [shouldPlayChord, setShouldPlayChord] = useState<Set<string> | null>(null)
-  const [isSamplerLoaded, setIsSamplerLoaded] = useState(false)
-
-  let error: number = 2; 
 
   useEffect(() => {
     synthRef.current = new Tone.Sampler({
@@ -124,6 +82,7 @@ export default function PianoApp() {
         "F#5": "Fs5.mp3",
         A5: "A5.mp3",
         C6: "C6.mp3",
+        "D#6": "Ds6.mp3",
         "F#6": "Fs6.mp3",
         A6: "A6.mp3",
         C7: "C7.mp3",
@@ -135,7 +94,6 @@ export default function PianoApp() {
       baseUrl: "https://tonejs.github.io/audio/salamander/",
       onload: () => {
         console.log("[v0] Salamander piano samples loaded successfully")
-        setIsSamplerLoaded(true)
       },
     }).toDestination()
 
@@ -168,6 +126,28 @@ export default function PianoApp() {
     }
   }, []) // Removed selectedChordNotes dependency
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        setIsCtrlPressed(true)
+      }
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) {
+        setIsCtrlPressed(false)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    window.addEventListener("keyup", handleKeyUp)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("keyup", handleKeyUp)
+    }
+  }, [selectedChordNotes])
+
   const startAudio = useCallback(async () => {
     if (!isAudioStarted) {
       await Tone.start()
@@ -179,7 +159,7 @@ export default function PianoApp() {
   useEffect(() => {
     if (shouldPlayChord && synthRef.current) {
       const timeoutId = setTimeout(() => {
-        // synthRef.current?.releaseAll() // <-- Remove this line
+        synthRef.current?.releaseAll()
         shouldPlayChord.forEach((chordNote) => {
           if (synthRef.current) {
             synthRef.current.triggerAttackRelease(chordNote, "2n")
@@ -187,7 +167,7 @@ export default function PianoApp() {
         })
         setShouldPlayChord(null)
       }, 50)
-
+      
       return () => clearTimeout(timeoutId)
     }
   }, [shouldPlayChord])
@@ -195,16 +175,15 @@ export default function PianoApp() {
   const playNote = useCallback(
     async (note: string) => {
       await startAudio()
-      if (!isSamplerLoaded) return // Prevent playing before loaded
 
       if (synthRef.current && !activeNotes.has(note)) {
         synthRef.current.triggerAttack(note)
         addActiveNote(note)
-      } else if (synthRef.current) {
-        synthRef.current.triggerAttack(note)
+      } else {
+        removeActiveNote(note)
       }
     },
-    [startAudio, activeNotes, addActiveNote, isSamplerLoaded],
+    [startAudio, activeNotes, addActiveNote],
   )
 
   const stopNote = useCallback(
@@ -219,264 +198,206 @@ export default function PianoApp() {
 
   const handleMouseDown = useCallback(
     (note: string) => {
-      if (!isSamplerLoaded) return
-
       if (isCtrlPressed) {
         // Clear any previously selected regular note when starting chord selection
         if (selectedNote) {
           setSelectedNote("")
           clearActiveNotes()
         }
-
-        // Compute new chord notes set
-        const newSet = new Set(selectedChordNotes)
-        const wasInChord = newSet.has(note)
-        if (wasInChord) {
-          newSet.delete(note)
-          if (activeNotes.has(note)) {
-            removeActiveNote(note)
+        
+        setSelectedChordNotes((prev) => {
+          const newSet = new Set(prev)
+          const wasInChord = newSet.has(note)
+          if (wasInChord) {
+            newSet.delete(note)
+            // If removing from chord, stop the note
+            if (activeNotes.has(note)) {
+              removeActiveNote(note)
+            }
+          } else {
+            newSet.add(note)
+            // If adding to chord, play the note
+            addActiveNote(note)
           }
-        } else {
-          newSet.add(note)
-          addActiveNote(note)
-        }
-
-        setSelectedChordNotes(newSet)
-        setShouldPlayChord(newSet)
+          
+          // Trigger chord playback
+          setShouldPlayChord(newSet)
+          
+          return newSet
+        })
         return
-      } else if (selectedChordNotes.has(note)) {
-        const newSet = new Set(selectedChordNotes)
-        newSet.delete(note)
-        setSelectedChordNotes(newSet)
-        setShouldPlayChord(newSet)
+      }
+      else if (selectedChordNotes.has(note)) {
+        setSelectedChordNotes((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(note)
+          
+          // Trigger chord playback
+          setShouldPlayChord(newSet)
+          
+          return newSet
+        })
+        // Play the note for immediate visual feedback
+        // Stop after a brief moment
         setTimeout(() => stopNote(note), 150)
-      } else if (selectedNote != note && selectedChordNotes) {
+      } 
+      else if (selectedNote != note && selectedChordNotes) {
         stopNote(selectedNote)
         playNote(note)
         setSelectedNote(note)
         setSelectedChordNotes(new Set())
         clearActiveNotes()
-      } else {
+      }
+      else{
         playNote(note)
         setSelectedNote(note)
       }
     },
-    [
-      playNote,
-      isCtrlPressed,
-      selectedNote,
-      stopNote,
-      activeNotes,
-      selectedChordNotes,
-      isSamplerLoaded,
-      addActiveNote,
-      removeActiveNote,
-      clearActiveNotes,
-    ],
+    [playNote, isCtrlPressed, selectedNote, stopNote, activeNotes, selectedChordNotes],
   )
 
-  const whiteKeyWidth = 64; // width of a white key
-  const blackKeyOffset = {
-    "C#": 0.7,
-    "D#": 1.7,
-    "F#": 3.7,
-    "G#": 4.7,
-    "A#": 5.7,
-  };
-  
-  const getBlackKeyPosition = (note: string, octave: number) => {
-    const baseNote = note.includes("#") ? note : null;
-    
-    if (!baseNote) return 0;
-    
-    // Number of white keys before this octave
-    const whiteKeysPerOctave = 7;
-    const octaveOffset = octave * whiteKeysPerOctave * whiteKeyWidth;
-  
-    let keyOffset = blackKeyOffset[baseNote as keyof typeof blackKeyOffset] * (whiteKeyWidth / 1); // fine-tune if needed
-    keyOffset = keyOffset - error
-    error = error + 2
-    if (note == "D#" && octave == 0) {
-      error = error + 1
-    }
-    else if (note == "A#" && octave == 0) {
-      error = error + 1
-    }
-    else if (note == "D#" && octave == 1) {
-      error = error + 1
-    }
-    else if (note == "A#" && octave == 1) {
-      error = error + 1
-    }
-    else if (note == "A#" && octave == 2) {
-      error = error + 1
-    }
-    else if (note == "D#" && octave == 3) {
-      error = error + 1
-    }
-    else if (note == "A#" && octave == 3) {
-      error = error + 1
-    }
-    else if (note == "D#" && octave == 4) {
-      error = error + 1
-    }
-    else if (note == "A#" && octave == 4) {
-      error = error + 1
-    }
-    else if (note == "D#" && octave == 5) {
-      error = error + 1
-    }
-    else if (note == "A#" && octave == 5) {
-      error = error + 1
+  const getBlackKeyPosition = (note: string, octave: string) => {
+    const baseNote = note.replace("#", "")
+    const octaveNumber = Number.parseInt(octave)
+
+    const positions = {
+      C: 44,
+      D: 108,
+      F: 236,
+      G: 300,
+      A: 364,
     }
 
-    return octaveOffset + keyOffset;
-  };
+    let octaveOffset = (octaveNumber - 3) * 448 
+    if (octaveNumber == 4) {
+      octaveOffset = (octaveNumber - 3) * 448 - 3
+    } 
+    if (octaveNumber == 5) {
+      octaveOffset = (octaveNumber - 3) * 448 - 6
+    } 
+    const basePosition = positions[baseNote as keyof typeof positions] || 0
+
+    return basePosition + octaveOffset
+  }
 
   const replayChord = useCallback(() => {
-    if (!isSamplerLoaded) return
-    // synthRef.current?.releaseAll() // <-- Remove this line if present
     selectedChordNotes.forEach((note) => {
       if (synthRef.current) {
-        synthRef.current.triggerAttackRelease(note, "2n")
+        synthRef.current.triggerAttackRelease(note, "2n") // Changed from "8n" to "2n" for longer duration
       }
     })
-  }, [selectedChordNotes, isSamplerLoaded])
+  }, [selectedChordNotes])
 
   return (
-    <div className="w-full">
-      {/* Show loading indicator if sampler not loaded */}
-      {!isSamplerLoaded && <div className="text-center text-white mb-4">Loading piano samples...</div>}
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">Virtual Piano</h2>
-        <p className="text-slate-200 text-sm">
-          Click and hold keys to sustain notes • Hold Ctrl+click to select chord notes, release Ctrl to play • Scroll
-          horizontally to see all keys (C0 to E6)
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-900 p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Virtual Piano</h1>
+          <p className="text-slate-200">
+            Click and hold keys to sustain notes • Hold Ctrl+click to select chord notes, release Ctrl to play • Scroll
+            horizontally to see all keys
+          </p>
+        </div>
 
-      <div className="overflow-x-auto scrollbar-custom">
-        <div className="relative min-w-[2800px] h-40">
-          <div className="flex">
-            {whiteKeys.map((note, index) => (
-              <button
-                key={note}
-                className={`
-                  w-16 h-32 border-2 border-slate-600 transition-all duration-75
-                  ${index === 0 ? "rounded-l-lg" : ""}
-                  ${index === whiteKeys.length - 1 ? "rounded-r-lg" : ""}
-                `}
-                style={{
-                  backgroundColor: activeNotes.has(note) ? "#60a5fa" : "#ffffff",
-                  borderColor: activeNotes.has(note) ? "#93c5fd" : "#475569",
-                  boxShadow: activeNotes.has(note) ? "0 10px 15px -3px rgba(59, 130, 246, 0.5)" : "none",
-                }}
-                onMouseDown={() => handleMouseDown(note)}
-              >
-                <span
-                  className="text-xs text-slate-600 mt-auto block pb-4 font-medium"
-                  style={{ position: "relative", bottom: "calc(-50% + 10px)" }}
-                >
-                  {note}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="absolute top-0 left-0">
-            {blackKeys.map((note) => {
-              const octave = note.slice(-1)
-              const baseNote = note.slice(0, -1)
-              const position = getBlackKeyPosition(baseNote, Number(octave))
-
-              return (
-                <button
-                  key={note}
-                  className={`
-                    absolute w-10 h-20 rounded-b-lg border-2 transition-all duration-75
-                    ${
-                      activeNotes.has(note)
-                        ? "bg-purple-500 border-purple-400 shadow-lg shadow-purple-500/50"
-                            : "bg-slate-900 border-slate-700 hover:bg-slate-800"
-                    }
-                  `}
-                  style={{ left: `${position}px` }}
-                  onMouseDown={() => handleMouseDown(note)}
-                >
-                  <span
-                    className="text-xs text-white mt-auto block pb-2 font-medium"
-                    style={{ position: "relative", bottom: "calc(-50% + 10px)" }}
+        <Card className="p-6 bg-slate-800/50 border-slate-700">
+          <div className="overflow-x-auto">
+            <div className="relative min-w-[1400px] h-64">
+              <div className="flex">
+                {whiteKeys.map((note, index) => (
+                  <button
+                    key={note}
+                    className={`
+                      w-16 h-48 border-2 border-slate-600 transition-all duration-75
+                      ${
+                        activeNotes.has(note)
+                          ? "bg-blue-400 border-blue-300 shadow-lg shadow-blue-500/50" : "bg-white hover:bg-slate-100"
+                      }
+                      ${index === 0 ? "rounded-l-lg" : ""}
+                      ${index === whiteKeys.length - 1 ? "rounded-r-lg" : ""}
+                    `}
+                    onMouseDown={() => handleMouseDown(note)}
                   >
-                    {note}
-                  </span>
-                </button>
-              )
-            })}
+                    <span className="text-xs text-slate-600 mt-auto block pb-4 font-medium" style={{ "position": "relative", "bottom": "calc(-50% + 10px)" }}>{note}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="absolute top-0 left-0">
+                {blackKeys.map((note) => {
+                  const octave = note.slice(-1)
+                  const baseNote = note.slice(0, -1)
+                  const position = getBlackKeyPosition(baseNote, octave)
+
+                  return (
+                    <button
+                      key={note}
+                      className={`
+                        absolute w-10 h-32 rounded-b-lg border-2 transition-all duration-75
+                        ${
+                          activeNotes.has(note)
+                            ? "bg-purple-500 border-purple-400 shadow-lg shadow-purple-500/50"
+                                : "bg-slate-900 border-slate-700 hover:bg-slate-800"
+                        }
+                      `}
+                      style={{ left: `${position}px` }}
+                      onMouseDown={() => handleMouseDown(note)}
+                    >
+                      <span className="text-xs text-white mt-auto block pb-2 font-medium" style={{ "position": "relative", "bottom": "calc(-50% + 10px)" }}>{note}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
+
+          <div className="mt-6 flex justify-center gap-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (synthRef.current) {
+                  synthRef.current.releaseAll()
+                }
+              }}
+              className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
+            >
+              Stop All Notes
+            </Button>
+            {selectedChordNotes.size > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={replayChord}
+                  className="bg-blue-700 border-blue-600 text-white hover:bg-blue-600"
+                >
+                  Replay Chord
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    selectedChordNotes.forEach((note) => {
+                      if (synthRef.current) {
+                        synthRef.current.triggerRelease(note)
+                      }
+                    })
+                    setSelectedChordNotes(new Set)
+                    selectedChordNotes.forEach((note) => removeActiveNote(note))
+                  }}
+                  className="bg-green-700 border-green-600 text-white hover:bg-green-600"
+                >
+                  Clear Chord ({selectedChordNotes.size} notes)
+                </Button>
+              </>
+            )}
+          </div>
+        </Card>
+
+        <div className="mt-6 text-center text-slate-300 text-sm">
+          <p>
+            Hold multiple keys simultaneously for chords • Hold Ctrl+click to select chord notes, release Ctrl to play •
+            Release or move mouse away to stop individual notes
+          </p>
         </div>
       </div>
-
-      <div className="mt-4 flex justify-center gap-4">
-        <Button
-          variant="outline"
-          onClick={() => {
-            if (synthRef.current) {
-              synthRef.current.releaseAll()
-            }
-          }}
-          className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
-        >
-          Stop All Notes
-        </Button>
-        <Button
-          variant="outline"
-          onClick={replayChord}
-          className="bg-blue-700 border-blue-600 text-white hover:bg-blue-600"
-        >
-          Replay Chord
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            selectedChordNotes.forEach((note) => {
-              if (synthRef.current) {
-                synthRef.current.triggerRelease(note)
-              }
-            })
-            setSelectedChordNotes(new Set())
-            selectedChordNotes.forEach((note) => removeActiveNote(note))
-          }}
-          className="bg-green-700 border-green-600 text-white hover:bg-green-600"
-        >
-          Clear Chord ({selectedChordNotes.size} notes)
-        </Button>
-      </div>
-
-      <style jsx>{`
-        .scrollbar-custom {
-          scrollbar-width: thin;
-          scrollbar-color: #475569 #1e293b;
-        }
-        
-        .scrollbar-custom::-webkit-scrollbar {
-          height: 8px;
-        }
-        
-        .scrollbar-custom::-webkit-scrollbar-track {
-          background: #1e293b;
-          border-radius: 4px;
-        }
-        
-        .scrollbar-custom::-webkit-scrollbar-thumb {
-          background: #475569;
-          border-radius: 4px;
-          border: 1px solid #334155;
-        }
-        
-        .scrollbar-custom::-webkit-scrollbar-thumb:hover {
-          background: #64748b;
-        }
-      `}</style>
     </div>
   )
 }

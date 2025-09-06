@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 import React, { useRef, useState, useEffect } from "react";
 import ReactDOM from 'react-dom'
@@ -6,21 +6,21 @@ import * as Tone from "tone"
 import Chord from '@tombatossals/react-chords/lib/Chord'
 import { useStore } from "@/store/store"
 
-const STANDARD_TUNING_MIDI = [64, 59, 55, 50, 45, 40]
-const FRETS = 24
-const DOT_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24]
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+const STANDARD_TUNING_MIDI = [64, 59, 55, 50, 45, 40];
+const FRETS = 24;
+const DOT_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 function midiToFrequency(midi: number) {
-  return 440 * Math.pow(2, (midi - 69) / 12)
+    return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
 type FretState = {
-  highlighted?: boolean
-  selected?: boolean
-  voicing?: boolean
-  [key: string]: boolean | undefined // extensible
-}
+  highlighted?: boolean;
+  selected?: boolean;
+  voicing?: boolean;
+  [key: string]: boolean | undefined; // extensible
+};
 
 export default function FretlyGuitar() {
     const { activeNotes } = useStore();
@@ -32,30 +32,30 @@ export default function FretlyGuitar() {
     const [selectedChordFrets, setSelectedChordFrets] = useState<{ stringIndex: number, fretIndex: number }[]>([]);
     const [showChordChart, setShowChordChart] = useState(true);
 
-  useEffect(() => {
-    synthRef.current = new Tone.Sampler({
-      urls: {
-        E2: "/audio/guitar_note_samples/E2.mp3",
-        G2: "/audio/guitar_note_samples/G2.mp3",
-        "A#2": "/audio/guitar_note_samples/A_sharp2.mp3",
-        "C#3": "/audio/guitar_note_samples/C_sharp3.mp3",
-        E3: "/audio/guitar_note_samples/E3.mp3",
-        G3: "/audio/guitar_note_samples/G3.mp3",
-        "A#3": "/audio/guitar_note_samples/A_sharp3.mp3",
-        "C#4": "/audio/guitar_note_samples/C_sharp4.mp3",
-        E4: "/audio/guitar_note_samples/E4.mp3",
-        G4: "/audio/guitar_note_samples/G4.mp3",
-        "A#4": "/audio/guitar_note_samples/A_sharp4.mp3",
-        "C#5": "/audio/guitar_note_samples/C_sharp5.mp3",
-        E5: "/audio/guitar_note_samples/E5.mp3",
-        G5: "/audio/guitar_note_samples/G5.mp3",
-        "A#5": "/audio/guitar_note_samples/A_sharp5.mp3",
-        "C#6": "/audio/guitar_note_samples/C_sharp6.mp3",
-      },
-      onload: () => {
-        console.log("Guitar samples loaded successfully")
-      },
-    }).toDestination()
+    useEffect(() => {
+        synthRef.current = new Tone.Sampler({
+            urls: {
+                "E2": "/audio/guitar_note_samples/E2.mp3",
+                "G2": "/audio/guitar_note_samples/G2.mp3",
+                "A#2": "/audio/guitar_note_samples/A_sharp2.mp3",
+                "C#3": "/audio/guitar_note_samples/C_sharp3.mp3",
+                "E3": "/audio/guitar_note_samples/E3.mp3",
+                "G3": "/audio/guitar_note_samples/G3.mp3",
+                "A#3": "/audio/guitar_note_samples/A_sharp3.mp3",
+                "C#4": "/audio/guitar_note_samples/C_sharp4.mp3",
+                "E4": "/audio/guitar_note_samples/E4.mp3",
+                "G4": "/audio/guitar_note_samples/G4.mp3",
+                "A#4": "/audio/guitar_note_samples/A_sharp4.mp3",
+                "C#5": "/audio/guitar_note_samples/C_sharp5.mp3",
+                "E5": "/audio/guitar_note_samples/E5.mp3",
+                "G5": "/audio/guitar_note_samples/G5.mp3",
+                "A#5": "/audio/guitar_note_samples/A_sharp5.mp3",
+                "C#6": "/audio/guitar_note_samples/C_sharp6.mp3",
+            },
+            onload: () => {
+                console.log("Guitar samples loaded successfully")
+            },
+        }).toDestination()
 
         return () => {
             if (synthRef.current) {
@@ -67,170 +67,163 @@ export default function FretlyGuitar() {
     function getMidiForStringFret(stringIndex: number, fretIndex: number): number {
         return STANDARD_TUNING_MIDI[stringIndex] + fretIndex;
     }
-  }, [])
 
-  // Highlight notes from activeNotes in global store
-
-  function getMidiForStringFret(stringIndex: number, fretIndex: number): number {
-    return STANDARD_TUNING_MIDI[stringIndex] + fretIndex
-  }
-
-  function getNoteName(midi: number): string {
-    const noteIndex = midi % 12
-    return NOTE_NAMES[noteIndex]
-  }
-
-  function playSelectedChord(currentFretboard: Map<number, FretState>[]) {
-    if (!synthRef.current) return
-    const selectedNotes: { midi: number; stringIndex: number; fretIndex: number }[] = []
-    for (let si = 0; si < currentFretboard.length; si++) {
-      for (const [fi, state] of currentFretboard[si].entries()) {
-        if (state.selected) {
-          selectedNotes.push({ midi: getMidiForStringFret(si, fi), stringIndex: si, fretIndex: fi })
-        }
-      }
+    function getNoteName(midi: number): string {
+        const noteIndex = midi % 12;
+        return NOTE_NAMES[noteIndex];
     }
-    // Play all selected notes at once
-    selectedNotes.forEach(({ midi }) => {
-      const freq = midiToFrequency(midi)
-      if (synthRef.current) {
-        synthRef.current.triggerAttackRelease(freq, "1.2")
-      }
-    })
-  }
 
-  function updateFret(stringIndex: number, fretIndex: number, updates: Partial<FretState>) {
-    setFretboard((prev) => {
-      const newBoard = [...prev]
-      const newMap = new Map(newBoard[stringIndex]) // clone string's map
-
-      // if selecting, clear other selected frets on this string
-      if (updates.selected) {
-        const fretState = newMap.get(fretIndex)
-        if (fretState?.selected === true) {
-          const fretState = newMap.get(fretIndex) ?? {}
-          newMap.set(fretIndex, { ...fretState, ...updates, selected: false })
-          newBoard[stringIndex] = newMap
-          // Update selectedChordFrets state
-          setSelectedChordFrets((prev) =>
-            prev.filter((f) => !(f.stringIndex === stringIndex && f.fretIndex === fretIndex)),
-          )
-          setTimeout(() => {
-            playSelectedChord(newBoard)
-          }, 0)
-          return newBoard
-        }
-        for (const [f, state] of newMap.entries()) {
-          if (state.selected) {
-            newMap.set(f, { ...state, selected: false })
-          }
-        }
-      }
-
-      const oldState = newMap.get(fretIndex) ?? {}
-      newMap.set(fretIndex, { ...oldState, ...updates })
-      newBoard[stringIndex] = newMap
-
-      // Update selectedChordFrets state
-      if (updates.selected) {
-        setSelectedChordFrets((prev) => {
-          // Remove any previous selection for this string
-          const filtered = prev.filter((f) => f.stringIndex !== stringIndex)
-          return [...filtered, { stringIndex, fretIndex }]
-        })
-      }
-
-      // Play chord if selecting
-      if (updates.selected) {
-        setTimeout(() => {
-          playSelectedChord(newBoard)
-        }, 0)
-      }
-
-      return newBoard
-    })
-  }
-
-  // Replay chord
-  function replayChord() {
-    if (!synthRef.current) return
-    selectedChordFrets.forEach(({ stringIndex, fretIndex }) => {
-      const midi = getMidiForStringFret(stringIndex, fretIndex)
-      const freq = midiToFrequency(midi)
-      synthRef.current!.triggerAttackRelease(freq, "1.2")
-    })
-  }
-
-  // Clear chord
-  function clearChord() {
-    setFretboard((prev) => {
-      const newBoard = prev.map((stringMap, si) => {
-        const newMap = new Map(stringMap)
-        for (const [fi, state] of newMap.entries()) {
-          if (state.selected) {
-            newMap.set(fi, { ...state, selected: false })
-          }
-        }
-        return newMap
-      })
-      return newBoard
-    })
-    setSelectedChordFrets([])
-  }
-
-  function isSelected(stringIndex: number, fretIndex: number): boolean {
-    return fretboard[stringIndex].get(fretIndex)?.selected === true
-  }
-
-  function isHighlighted(stringIndex: number, fretIndex: number): boolean {
-    return fretboard[stringIndex].get(fretIndex)?.highlighted === true
-  }
-
-  function isVoicing(stringIndex: number, fretIndex: number): boolean {
-    return fretboard[stringIndex].get(fretIndex)?.voicing === true
-  }
-
-  function hasAnyState(stringIndex: number, fretIndex: number): boolean {
-    const state = fretboard[stringIndex].get(fretIndex)
-    if (!state) {
-      return false // nothing stored at all
-    }
-    return Object.values(state).some(Boolean)
-  }
-
-  function onFretClick(stringIndex: number, fret: number) {
-    updateFret(stringIndex, fret, { selected: true })
-  }
-
-  const strings = 6
-  const STRING_THICKNESSES = [1.5, 2, 2.5, 3, 3.5, 4]
-
-  useEffect(() => {
-    // Get note names from activeNotes (ignore octave)
-    const activeNoteNames = Array.from(activeNotes).map((n) => n.replace(/[0-9]+$/, ""))
-    setFretboard((prev) => {
-      // For each string/fret, set voicing if note name matches
-      return prev.map((stringMap, si) => {
-        const newMap = new Map(stringMap)
-        for (let fi = 0; fi <= FRETS; fi++) {
-          const midi = getMidiForStringFret(si, fi)
-          const noteName = getNoteName(midi)
-          if (activeNoteNames.includes(noteName)) {
-            const oldState = newMap.get(fi) ?? {}
-            newMap.set(fi, { ...oldState, voicing: true })
-          } else {
-            const oldState = newMap.get(fi)
-            if (oldState && oldState.voicing) {
-              // Remove voicing if not in activeNotes
-              const { voicing, ...rest } = oldState
-              newMap.set(fi, rest)
+    function playSelectedChord(currentFretboard: Map<number, FretState>[]) {
+        if (!synthRef.current) return;
+        const selectedNotes: { midi: number; stringIndex: number; fretIndex: number }[] = [];
+        for (let si = 0; si < currentFretboard.length; si++) {
+            for (const [fi, state] of currentFretboard[si].entries()) {
+                if (state.selected) {
+                    selectedNotes.push({ midi: getMidiForStringFret(si, fi), stringIndex: si, fretIndex: fi });
+                }
             }
-          }
         }
-        return newMap
-      })
-    })
-  }, [activeNotes])
+        // Play all selected notes at once
+        selectedNotes.forEach(({ midi }) => {
+            const freq = midiToFrequency(midi);
+            if (synthRef.current) {
+                synthRef.current.triggerAttackRelease(freq, "1.2");
+            }
+        });
+    }
+
+    function updateFret(stringIndex: number, fretIndex: number, updates: Partial<FretState>) {
+        setFretboard(prev => {
+            const newBoard = [...prev];
+            const newMap = new Map(newBoard[stringIndex]); // clone string's map
+
+            // if selecting, clear other selected frets on this string
+            if (updates.selected) {
+                const fretState = newMap.get(fretIndex);
+                if (fretState?.selected === true) {
+                    const fretState = newMap.get(fretIndex) ?? {};
+                    newMap.set(fretIndex, { ...fretState, ...updates, selected: false });
+                    newBoard[stringIndex] = newMap;
+                    // Update selectedChordFrets state
+                    setSelectedChordFrets(prev =>
+                        prev.filter(f => !(f.stringIndex === stringIndex && f.fretIndex === fretIndex))
+                    );
+                    setTimeout(() => {
+                        playSelectedChord(newBoard);
+                    }, 0);
+                    return newBoard;
+                }
+                for (const [f, state] of newMap.entries()) {
+                    if (state.selected) {
+                        newMap.set(f, { ...state, selected: false });
+                    }
+                }
+            }
+
+            const oldState = newMap.get(fretIndex) ?? {};
+            newMap.set(fretIndex, { ...oldState, ...updates });
+            newBoard[stringIndex] = newMap;
+
+            // Update selectedChordFrets state
+            if (updates.selected) {
+                setSelectedChordFrets(prev => {
+                    // Remove any previous selection for this string
+                    const filtered = prev.filter(f => f.stringIndex !== stringIndex);
+                    return [...filtered, { stringIndex, fretIndex }];
+                });
+            }
+
+            // Play chord if selecting
+            if (updates.selected) {
+                setTimeout(() => {
+                    playSelectedChord(newBoard);
+                }, 0);
+            }
+
+            return newBoard;
+        });
+    }
+
+    // Replay chord
+    function replayChord() {
+        if (!synthRef.current) return;
+        selectedChordFrets.forEach(({ stringIndex, fretIndex }) => {
+            const midi = getMidiForStringFret(stringIndex, fretIndex);
+            const freq = midiToFrequency(midi);
+            synthRef.current!.triggerAttackRelease(freq, "1.2");
+        });
+    }
+
+    // Clear chord
+    function clearChord() {
+        setFretboard(prev => {
+            const newBoard = prev.map((stringMap, si) => {
+                const newMap = new Map(stringMap);
+                for (const [fi, state] of newMap.entries()) {
+                    if (state.selected) {
+                        newMap.set(fi, { ...state, selected: false });
+                    }
+                }
+                return newMap;
+            });
+            return newBoard;
+        });
+        setSelectedChordFrets([]);
+    }
+
+    function isSelected(stringIndex: number, fretIndex: number): boolean {
+        return fretboard[stringIndex].get(fretIndex)?.selected === true;
+    }
+
+    function isHighlighted(stringIndex: number, fretIndex: number): boolean {
+        return fretboard[stringIndex].get(fretIndex)?.highlighted === true;
+    }
+
+    function isVoicing(stringIndex: number, fretIndex: number): boolean {
+        return fretboard[stringIndex].get(fretIndex)?.voicing === true;
+    }
+
+    function hasAnyState(stringIndex: number, fretIndex: number): boolean {
+        const state = fretboard[stringIndex].get(fretIndex);
+        if (!state) {
+            return false; // nothing stored at all
+        }
+        return Object.values(state).some(Boolean);
+    }
+
+    function onFretClick(stringIndex: number, fret: number) {
+        updateFret(stringIndex, fret, { selected: true });
+    }
+
+    const strings = 6;
+    const STRING_THICKNESSES = [1.5, 2, 2.5, 3, 3.5, 4];
+
+    useEffect(() => {
+        // Get note names from activeNotes (ignore octave)
+        const activeNoteNames = Array.from(activeNotes).map(n => n.replace(/[0-9]+$/, ""));
+        setFretboard(prev => {
+            // For each string/fret, set voicing if note name matches
+            return prev.map((stringMap, si) => {
+                const newMap = new Map(stringMap);
+                for (let fi = 0; fi <= FRETS; fi++) {
+                    const midi = getMidiForStringFret(si, fi);
+                    const noteName = getNoteName(midi);
+                    if (activeNoteNames.includes(noteName)) {
+                        const oldState = newMap.get(fi) ?? {};
+                        newMap.set(fi, { ...oldState, voicing: true });
+                    } else {
+                        const oldState = newMap.get(fi);
+                        if (oldState && oldState.voicing) {
+                            // Remove voicing if not in activeNotes
+                            const { voicing, ...rest } = oldState;
+                            newMap.set(fi, rest);
+                        }
+                    }
+                }
+                return newMap;
+            });
+        });
+    }, [activeNotes]);
 
     function getChordChartFromSelectedFrets(selectedFrets: { stringIndex: number, fretIndex: number }[]) {
         // Sort by stringIndex (low E = 0, high E = 5)
@@ -479,34 +472,7 @@ export default function FretlyGuitar() {
                     </button>
                     </div>
                 </div>
-              )
-            })}
-          </div>
-        </div>
-        {/* Fret numbers below the fretboard */}
-        <div className="mt-2 flex justify-between px-2 text-xs text-slate-200 min-w-[700px]">
-          {Array.from({ length: FRETS + 1 }).map((_, fi) => (
-            <div key={`fnum-${fi}`} className="flex-1 text-center">
-              {fi}
             </div>
-          ))}
         </div>
-
-        {/* Replay/Clear Chord Buttons */}
-        <div className="mt-4 flex gap-4 justify-center">
-          <button
-            onClick={replayChord}
-            className="bg-blue-700 border border-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Replay Chord
-          </button>
-          <button
-            onClick={clearChord}
-            className="bg-green-700 border border-green-600 text-white px-4 py-2 rounded hover:bg-green-600"
-          >
-            Clear Chord ({selectedChordFrets.length} notes)
-          </button>
-        </div>
-      </div>
-  )
+    );
 }
