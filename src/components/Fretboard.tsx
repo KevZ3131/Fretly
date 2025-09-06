@@ -16,6 +16,7 @@ function midiToFrequency(midi: number) {
 type FretState = {
   highlighted?: boolean;
   selected?: boolean;
+  voicing?: boolean;
   [key: string]: boolean | undefined; // extensible
 };
 
@@ -177,6 +178,10 @@ export default function FretlyGuitar() {
         return fretboard[stringIndex].get(fretIndex)?.highlighted === true;
     }
 
+    function isVoicing(stringIndex: number, fretIndex: number): boolean {
+        return fretboard[stringIndex].get(fretIndex)?.voicing === true;
+    }
+
     function hasAnyState(stringIndex: number, fretIndex: number): boolean {
         const state = fretboard[stringIndex].get(fretIndex);
         if (!state) {
@@ -191,6 +196,33 @@ export default function FretlyGuitar() {
 
     const strings = 6;
     const STRING_THICKNESSES = [1.5, 2, 2.5, 3, 3.5, 4];
+
+    useEffect(() => {
+        // Get note names from activeNotes (ignore octave)
+        const activeNoteNames = Array.from(activeNotes).map(n => n.replace(/[0-9]+$/, ""));
+        setFretboard(prev => {
+            // For each string/fret, set voicing if note name matches
+            return prev.map((stringMap, si) => {
+                const newMap = new Map(stringMap);
+                for (let fi = 0; fi <= FRETS; fi++) {
+                    const midi = getMidiForStringFret(si, fi);
+                    const noteName = getNoteName(midi);
+                    if (activeNoteNames.includes(noteName)) {
+                        const oldState = newMap.get(fi) ?? {};
+                        newMap.set(fi, { ...oldState, voicing: true });
+                    } else {
+                        const oldState = newMap.get(fi);
+                        if (oldState && oldState.voicing) {
+                            // Remove voicing if not in activeNotes
+                            const { voicing, ...rest } = oldState;
+                            newMap.set(fi, rest);
+                        }
+                    }
+                }
+                return newMap;
+            });
+        });
+    }, [activeNotes]);
 
     return (
         <div className="p-6 flex flex-col items-center gap-4 bg-slate-900 min-h-screen">
@@ -236,6 +268,8 @@ export default function FretlyGuitar() {
                                                     className="absolute h-full focus:outline-none focus:ring-0 bg-transparent group"
                                                     style={{ left: `${start}%`, width: `${width}%`, zIndex: 3 }}
                                                     title={`String ${si + 1} — Fret ${fi}`}
+                                                    onMouseEnter={() => {updateFret(si, fi, { highlighted: true })}}
+                                                    onMouseLeave={() => {updateFret(si, fi, { highlighted: false })}}
                                                 >
                                                     <div
                                                         className={`${hasAnyState(si, fi) ? "flex" : "hidden group-hover:flex"}`}
@@ -247,11 +281,15 @@ export default function FretlyGuitar() {
                                                             borderColor: "#64748b",
                                                             backgroundColor: isSelected(si, fi)
                                                                 ? "#3b82f6"
+                                                                : isHighlighted(si, fi)
+                                                                ? "#22c55e"
+                                                                : isVoicing(si, fi)
+                                                                ? "#f59e0b"
                                                                 : "#22c55e",
                                                             opacity: isSelected(si, fi)
                                                                 ? 1
-                                                                : isHighlighted(si, fi)
-                                                                ? 0.7
+                                                                : (isHighlighted(si, fi) || isVoicing(si, fi))
+                                                                ? 0.85
                                                                 : 0.3,
                                                             marginLeft: "auto",
                                                             marginRight: "auto",
@@ -259,8 +297,9 @@ export default function FretlyGuitar() {
                                                                 ? "0 0 6px 1px #3b82f6"
                                                                 : isHighlighted(si, fi)
                                                                 ? "0 0 4px 0.5px #22c55e"
+                                                                : isVoicing(si, fi)
+                                                                ? "0 0 4px 0.5px #f59e0b"
                                                                 : "none",
-                                                            // display: "flex",
                                                             alignItems: "center",
                                                             justifyContent: "center",
                                                             fontWeight: "bold",
