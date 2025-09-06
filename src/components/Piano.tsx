@@ -336,10 +336,6 @@ export default function PianoApp() {
                         ${
                           activeNotes.has(note)
                             ? "bg-purple-500 border-purple-400 shadow-lg shadow-purple-500/50"
-                            : selectedChordNotes.has(note)
-                              ? "bg-green-500 border-green-400 shadow-lg shadow-green-500/50"
-                              : selectedNote === note
-                                ? "bg-yellow-400 border-yellow-500 shadow-lg shadow-yellow-500/50"
                                 : "bg-slate-900 border-slate-700 hover:bg-slate-800"
                         }
                       `}
