@@ -91,7 +91,9 @@ export default function FretlyGuitar() {
                 if (fretState?.selected === true) {
                     const fretState = newMap.get(fretIndex) ?? {};
                     newMap.set(fretIndex, { ...fretState, ...updates, selected: false });
-                    newBoard[stringIndex] = newMap;
+                    newBoard[stringIndex] = newMap;setTimeout(() => {
+                        playSelectedChord(newBoard);
+                    }, 0);
                     return newBoard;
                 }
                 for (const [f, state] of newMap.entries()) {
