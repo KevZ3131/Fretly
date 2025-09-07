@@ -246,6 +246,11 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
 
       if (isCtrlPressed) {
         // Compute new chord notes set
+        if (selectedNote) {
+          setSelectedNote("")
+          clearActiveNotes()
+        }
+
         const newSet = new Set(selectedChordNotes)
         const wasInChord = newSet.has(note)
         if (wasInChord) {
@@ -255,10 +260,14 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
           }
         } else {
           newSet.add(note)
-          newSet.add(selectedNote)
+          if (activeNotes.size) {
+            activeNotes.forEach((note) => {
+              addActiveNote(note);
+              newSet.add(note);
+            });
+          }
           addActiveNote(note)
         }
-
         setSelectedChordNotes(newSet)
         setShouldPlayChord(newSet)
         return
