@@ -40,7 +40,33 @@ export default function FretlyGuitar({
     const synthRef = useRef<Tone.Sampler | null>(null);
     const [isAudioStarted, setIsAudioStarted] = useState(false);
     const [selectedChordFrets, setSelectedChordFrets] = useState<{ stringIndex: number, fretIndex: number }[]>([]);
+    // Add a ref to suppress notifying the parent when the change originates externally
+    const suppressNotifyRef = React.useRef(false);
     const [showChordChart, setShowChordChart] = useState(true);
+
+    // register a playPositions callback so navigation can play frets
+    useEffect(() => {
+        const playFn = (positions?: { string: number; fret: number }[]) => {
+            if (!positions || positions.length === 0) return
+            if (!synthRef.current) return
+            // play each position by triggering sampler with frequency
+            positions.forEach(p => {
+                const midi = getMidiForStringFret(p.string, p.fret)
+                const freq = midiToFrequency(midi)
+                try {
+                  synthRef.current!.triggerAttackRelease(freq, "1.2")
+                } catch (err) {
+                  // sampler may accept note names; fallback omitted for brevity
+                  console.warn("Play positions error:", err)
+                }
+            })
+        }
+
+        useStore.getState().setPlayPositions(playFn)
+        return () => {
+            useStore.getState().setPlayPositions(undefined)
+        }
+    }, []) // run once
 
     useEffect(() => {
         synthRef.current = new Tone.Sampler({
@@ -191,6 +217,9 @@ export default function FretlyGuitar({
             lookup.set(p.string, p.fret)
         }
 
+        // Suppress notifying parent while we apply this external selection
+        suppressNotifyRef.current = true
+
         setFretboard(prev => {
             const newBoard = prev.map((stringMap, si) => {
                 const newMap = new Map(stringMap)
@@ -214,10 +243,16 @@ export default function FretlyGuitar({
         // Update internal selectedChordFrets state to reflect external selection
         const newSelected = externalSelectedFrets.map(p => ({ stringIndex: p.string, fretIndex: p.fret }))
         setSelectedChordFrets(newSelected)
+
+        // Re-enable notifications on next tick to avoid race with parent update
+        setTimeout(() => {
+            suppressNotifyRef.current = false
+        }, 0)
     }, [externalSelectedFrets])
 
     // Notify parent when selectedChordFrets changes
     useEffect(() => {
+        if (suppressNotifyRef.current) return
         if (onSelectionChange) {
             const notes = selectedChordFrets.map(s => ({ string: s.stringIndex, fret: s.fretIndex }));
             onSelectionChange(notes);

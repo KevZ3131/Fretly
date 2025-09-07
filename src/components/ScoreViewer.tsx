@@ -96,6 +96,15 @@ export default function ScoreViewer() {
     return () => stopPlay()
   }, [])
 
+  // expose score navigation to global store so TabRenderer can trigger it
+  useEffect(() => {
+    // register no-ops until osmdRef is created
+    useStore.getState().setScoreNavigator(undefined, undefined)
+    return () => {
+      useStore.getState().setScoreNavigator(undefined, undefined)
+    }
+  }, [])
+
   const handleNext = () => moveCursorNext()
   const handlePrev = () => moveCursorPrev()
 
@@ -119,6 +128,16 @@ export default function ScoreViewer() {
             alpha: 0.8,
           },
         })
+
+        // register score navigation functions in the store
+        useStore.getState().setScoreNavigator(
+          () => {
+            try { osmdRef.current?.cursor?.next() } catch {}
+          },
+          () => {
+            try { osmdRef.current?.cursor?.previous() } catch {}
+          }
+        )
       }
 
       if (outputRef.current) outputRef.current.innerHTML = ""
@@ -176,6 +195,15 @@ export default function ScoreViewer() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    return () => {
+      // cleanup store registration on unmount
+      useStore.getState().setScoreNavigator(undefined, undefined)
+      stopPlay()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="w-full max-w-3xl mx-auto my-8">

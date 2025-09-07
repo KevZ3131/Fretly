@@ -6,6 +6,7 @@ import TabRenderer from "@/components/TabRenderer";
 import { Card } from "@/components/ui/card"
 import { useState } from "react";
 import ScoreViewer from "@/components/ScoreViewer";
+import { useStore } from "@/store/store"
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
@@ -13,6 +14,7 @@ export default function Home() {
   const [currentTabNotes, setCurrentTabNotes] = useState<{ string: number; fret: number }[]>([]);
   // holds the positions that correspond to the TabRenderer caret slot (when you navigate)
   const [selectedFromTab, setSelectedFromTab] = useState<{ string: number; fret: number }[]>([]);
+  const store = useStore()
 
   return (
     <main className="min-h-screen bg-slate-900 p-4 relative">
@@ -46,7 +48,13 @@ export default function Home() {
               onNavigate={(idx, positions) => {
                 // positions are in {str, fret} internal format; map to parent format {string, fret}
                 const mapped = (positions || []).map(p => ({ string: p.str, fret: p.fret }))
+                // immediately update both the current notes (for TabRenderer) and the external selected state (for fretboard)
+                setCurrentTabNotes(mapped)
                 setSelectedFromTab(mapped)
+                // trigger playing via store if handler exists
+                try {
+                  store.playPositions?.(mapped)
+                } catch (err) { /* ignore */ }
                 console.log("Tab navigate:", idx, mapped)
               }}
             />

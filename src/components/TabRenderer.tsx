@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react"
 // Force import from v5’s ESM entry
 // @ts-ignore
 import { Renderer, TabStave, TabNote, Voice, Formatter } from "vexflow"
+import { useStore } from "@/store/store"
 
 type FretPos = { string: number /* 0 = low E (6th) .. 5 = high E (1st) */, fret: number }
 type ScoreEvent = { duration: string /* "q","8","h" etc */, notes: FretPos[] }
@@ -31,6 +32,7 @@ export default function TabRenderer({
   const [caretIndex, setCaretIndex] = useState(0)
   const slotsRef = useRef<{ duration: string; positions: { str: number; fret: number }[] }[]>([])
   const vfWidthPerSlot = 140
+  const store = useStore()
 
   // Initialize / reset renderer
   useEffect(() => {
@@ -187,6 +189,22 @@ export default function TabRenderer({
   // Navigation
   const navigateToIndex = (newIndex: number) => {
     if (newIndex < 0) newIndex = 0
+
+    // If a score is loaded and the score viewer registered navigation, trigger it.
+    if (hasScore) {
+      const sNext = store.scoreNext
+      const sPrev = store.scorePrev
+      if (sNext || sPrev) {
+        // choose direction from comparison to caretIndex
+        if (newIndex > caretIndex) {
+          try { sNext && sNext() } catch {}
+        } else if (newIndex < caretIndex) {
+          try { sPrev && sPrev() } catch {}
+        }
+        // continue to update tab caret/slots as well so UI shows tab movement
+      }
+    }
+
     if (!hasScore || !scoreEvents || scoreEvents.length === 0) {
       while (slotsRef.current.length <= newIndex) slotsRef.current.push({ duration: "q", positions: [] })
       setCaretIndex(newIndex)
