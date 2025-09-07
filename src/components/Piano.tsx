@@ -88,7 +88,7 @@ const blackKeys = [
 ]
 
 export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
-  const { activeNotes, addActiveNote, removeActiveNote, clearActiveNotes, clearCounter } = useStore()
+  const { activeNotes, addActiveNote, removeActiveNote, clearActiveNotes } = useStore()
   const [isCtrlPressed, setIsCtrlPressed] = useState(false)
   const [selectedChordNotes, setSelectedChordNotes] = useState<Set<string>>(new Set())
   const [selectedNote, setSelectedNote] = useState<string>("")
@@ -156,10 +156,6 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
       }
     }
   }, [])
-
-  useEffect(() => {
-    setSelectedChordNotes(new Set())
-  }, [clearCounter])
 
   // Scroll to G2 after initial render
   useEffect(() => {

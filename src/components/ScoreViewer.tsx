@@ -121,7 +121,6 @@ export default function ScoreViewer() {
   const moveCursorNext = () => {
     if (!osmdRef.current?.cursor) return
     try {
-      clearActiveNotes()
       osmdRef.current.cursor.next() // move to next voice entry
       const currentEntries = osmdRef.current.cursor.iterator.currentVoiceEntries;
 
