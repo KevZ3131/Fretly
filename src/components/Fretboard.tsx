@@ -7,6 +7,8 @@ import Chord from '@tombatossals/react-chords/lib/Chord'
 import { useStore } from "@/store/store"
 import { Button } from "./ui/button";
 
+type SelectionCallback = (notes: { string: number; fret: number }[]) => void
+
 const STANDARD_TUNING_MIDI = [64, 59, 55, 50, 45, 40];
 const FRETS = 24;
 const DOT_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
@@ -23,7 +25,14 @@ type FretState = {
   [key: string]: boolean | undefined; // extensible
 };
 
-export default function FretlyGuitar() {
+// Modify the component signature to accept optional callbacks and external selection
+export default function FretlyGuitar({
+  onSelectionChange,
+  externalSelectedFrets,
+}: {
+  onSelectionChange?: SelectionCallback
+  externalSelectedFrets?: { string: number; fret: number }[]
+} = {}) {
     const { activeNotes } = useStore();
     const [fretboard, setFretboard] = useState<Map<number, FretState>[]>(
         () => Array.from({ length: 6 }, () => new Map())
@@ -31,7 +40,33 @@ export default function FretlyGuitar() {
     const synthRef = useRef<Tone.Sampler | null>(null);
     const [isAudioStarted, setIsAudioStarted] = useState(false);
     const [selectedChordFrets, setSelectedChordFrets] = useState<{ stringIndex: number, fretIndex: number }[]>([]);
+    // Add a ref to suppress notifying the parent when the change originates externally
+    const suppressNotifyRef = React.useRef(false);
     const [showChordChart, setShowChordChart] = useState(true);
+
+    // register a playPositions callback so navigation can play frets
+    useEffect(() => {
+        const playFn = (positions?: { string: number; fret: number }[]) => {
+            if (!positions || positions.length === 0) return
+            if (!synthRef.current) return
+            // play each position by triggering sampler with frequency
+            positions.forEach(p => {
+                const midi = getMidiForStringFret(p.string, p.fret)
+                const freq = midiToFrequency(midi)
+                try {
+                  synthRef.current!.triggerAttackRelease(freq, "1.2")
+                } catch (err) {
+                  // sampler may accept note names; fallback omitted for brevity
+                  console.warn("Play positions error:", err)
+                }
+            })
+        }
+
+        useStore.getState().setPlayPositions(playFn)
+        return () => {
+            useStore.getState().setPlayPositions(undefined)
+        }
+    }, []) // run once
 
     useEffect(() => {
         synthRef.current = new Tone.Sampler({
@@ -172,6 +207,58 @@ export default function FretlyGuitar() {
         setSelectedChordFrets([]);
     }
 
+    // When externalSelectedFrets changes (e.g. user navigated tab caret), update fretboard selected state
+    useEffect(() => {
+        if (!externalSelectedFrets) return
+
+        // Build a quick lookup by string -> fret
+        const lookup = new Map<number, number>()
+        for (const p of externalSelectedFrets) {
+            lookup.set(p.string, p.fret)
+        }
+
+        // Suppress notifying parent while we apply this external selection
+        suppressNotifyRef.current = true
+
+        setFretboard(prev => {
+            const newBoard = prev.map((stringMap, si) => {
+                const newMap = new Map(stringMap)
+                // Clear existing selected flags
+                for (const [fi, state] of newMap.entries()) {
+                    if (state.selected) {
+                        newMap.set(fi, { ...state, selected: false })
+                    }
+                }
+                // If there's a selection for this string, set it
+                const targetFret = lookup.get(si)
+                if (typeof targetFret === "number" && targetFret >= 0) {
+                    const old = newMap.get(targetFret) ?? {}
+                    newMap.set(targetFret, { ...old, selected: true })
+                }
+                return newMap
+            })
+            return newBoard
+        })
+
+        // Update internal selectedChordFrets state to reflect external selection
+        const newSelected = externalSelectedFrets.map(p => ({ stringIndex: p.string, fretIndex: p.fret }))
+        setSelectedChordFrets(newSelected)
+
+        // Re-enable notifications on next tick to avoid race with parent update
+        setTimeout(() => {
+            suppressNotifyRef.current = false
+        }, 0)
+    }, [externalSelectedFrets])
+
+    // Notify parent when selectedChordFrets changes
+    useEffect(() => {
+        if (suppressNotifyRef.current) return
+        if (onSelectionChange) {
+            const notes = selectedChordFrets.map(s => ({ string: s.stringIndex, fret: s.fretIndex }));
+            onSelectionChange(notes);
+        }
+    }, [selectedChordFrets, onSelectionChange]);
+
     function isSelected(stringIndex: number, fretIndex: number): boolean {
         return fretboard[stringIndex].get(fretIndex)?.selected === true;
     }
@@ -291,10 +378,12 @@ export default function FretlyGuitar() {
             {/* Fretboard + chord chart side by side */}
             <div className="flex flex-row items-start gap-6">
                 {/* Scrollable fretboard + numbers */}
-                <div className="overflow-x-auto flex-1 scrollbar-custom">
+                <div
+                    className="overflow-x-auto flex-1 scrollbar-custom"
+                >
                     <div
                         className="relative bg-gradient-to-b from-[#4a3f34] to-[#3b2f24] rounded-lg overflow-hidden"
-                        style={{ height: 180, minWidth: "1075px", width: "100%" }}
+                        style={{ height: 180, width: "100%" }}
                     >
                         {/* Fretlines */}
                         <div className="absolute inset-0">
@@ -424,7 +513,7 @@ export default function FretlyGuitar() {
                         </div>
                     </div>
                     {/* Fret numbers below the fretboard */}
-                    <div className="mt-2 flex justify-between text-xs text-slate-200" style={{ minWidth: "1075px", width: "100%" }}>
+                    <div className="mt-2 flex justify-between text-xs text-slate-200" style={{ width: "100%" }}>
                         {Array.from({ length: FRETS + 1 }).map((_, fi) => (
                             <div key={`fnum-${fi}`} className="flex-1 text-center">{fi}</div>
                         ))}

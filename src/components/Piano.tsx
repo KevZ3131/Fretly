@@ -370,7 +370,6 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
       {/* Show loading indicator if sampler not loaded */}
       {!isSamplerLoaded && <div className="text-center text-white mb-4">Loading piano samples...</div>}
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">Virtual Piano</h2>
         <p className="text-slate-200 text-sm">
           Click and hold keys to sustain notes • Hold Ctrl+click to select chord notes, release Ctrl to play • Scroll
           horizontally to see all keys (C0 to E6)
