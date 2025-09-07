@@ -64,12 +64,12 @@ export default function TabRenderer({
   // Convert slot to VexFlow TabNote
   const slotToTabNote = (slot: { duration: string; positions: { str: number; fret: number }[] }) => {
     if (!slot.positions || slot.positions.length === 0) {
-      // use 'x' placeholder visually when empty
-      return new TabNote({ positions: [{ str: 6, fret: "x" }], duration: slot.duration })
+        return new TabNote({ positions: [{ str: 6, fret: "x" }], duration: slot.duration })
     }
-    const positions = slot.positions.map(p => ({ str: 6 - p.str, fret: String(p.fret) }))
+    const positions = slot.positions.map(p => ({ str: p.str + 1, fret: String(p.fret) }))
     return new TabNote({ positions, duration: slot.duration })
-  }
+}
+
 
   // Draw everything
   const drawAll = useCallback(() => {
@@ -284,8 +284,8 @@ export default function TabRenderer({
   return (
     <div className="w-full">
       <div className="mb-2 flex items-center gap-2">
-        <button onClick={handlePrevClick} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">◀</button>
-        <button onClick={handleNextClick} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">▶</button>
+        <button onClick={handlePrevClick} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">◀ Prev</button>
+        <button onClick={handleNextClick} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">Next ▶</button>
         <button onClick={() => clearTabs()} className="px-3 py-1 bg-red-700 text-white rounded hover:bg-red-600">Clear Tabs</button>
         <div className="text-sm text-slate-300 ml-2">
           Slot {caretIndex + 1} / {Math.max(1, slotsRef.current.length)}

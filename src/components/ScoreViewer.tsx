@@ -326,7 +326,8 @@ export default function ScoreViewer() {
   }, [])
 
   return (
-    <div className="w-full max-w-3xl mx-auto my-8">
+    // made full width so it matches other elements inside the Card
+    <div className="w-full my-8">
       <h2 className="text-xl font-bold mb-4 text-white">Upload MusicXML and View Score</h2>
 
       <input
@@ -349,7 +350,7 @@ export default function ScoreViewer() {
         >
           {loading ? "Loading..." : "Upload and Render"}
         </button>
-        <button
+        {/* <button
           onClick={handlePrev}
           disabled={!osmdRef.current}
           className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600 disabled:opacity-50"
@@ -376,15 +377,17 @@ export default function ScoreViewer() {
           className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
         >
           Stop ■
-        </button>
+        </button> */}
       </div>
 
       {loading && <div className="text-blue-400 mb-2">Loading and parsing score...</div>}
       {error && <div className="text-red-500 mb-2">{error}</div>}
+
       <div
         id="output"
         ref={outputRef}
-        className="bg-white rounded shadow p-4 overflow-auto"
+        // ensure the rendered score area uses full width of the parent
+        className="bg-white rounded shadow p-4 overflow-auto w-full"
         style={{ minHeight: 400 }}
       />
     </div>

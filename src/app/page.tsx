@@ -28,10 +28,10 @@ export default function Home() {
       )}
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Music Studio</h1>
-          <p className="text-slate-200">Interactive piano and guitar instruments with shared note highlighting</p>
+          <h1 className="text-5xl font-bold text-white mb-2 drop-shadow-[0_0_10px_#ff00ff] drop-shadow-[0_0_20px_#00ffff]">
+            Fretly
+          </h1>
         </div>
-
         <Card className="p-6 bg-slate-800/50 border-slate-700">
           <div className="space-y-8">
             <PianoApp onLoaded={() => setIsLoading(false)} />
