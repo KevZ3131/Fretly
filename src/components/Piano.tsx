@@ -468,7 +468,7 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
               synthRef.current.releaseAll()
             }
           }}
-          className="bg-slate-500 hover:bg-slate-600 border-slate-500 text-white"
+          className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
         >
           Stop All Notes
         </Button>

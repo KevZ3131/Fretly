@@ -4,6 +4,7 @@ import PianoApp from "@/components/Piano";
 import FretlyGuitar from "@/components/Fretboard";
 import { Card } from "@/components/ui/card"
 import { useState } from "react";
+import ScoreViewer from "@/components/ScoreViewer";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +30,7 @@ export default function Home() {
             <PianoApp onLoaded={() => setIsLoading(false)} />
             <div className="border-t border-slate-600"></div>
             <FretlyGuitar />
+            <ScoreViewer />
           </div>
         </Card>
       </div>
