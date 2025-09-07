@@ -365,30 +365,6 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
     })
   }, [selectedChordNotes, isSamplerLoaded])
 
-  // Play newly added activeNotes (when other components add notes)
-  const prevActiveRef = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    if (!synthRef.current || !isSamplerLoaded) {
-      prevActiveRef.current = new Set(activeNotes)
-      return
-    }
-
-    // determine newly added notes
-    const prev = prevActiveRef.current
-    const added = [...activeNotes].filter((n) => !prev.has(n))
-    if (added.length > 0) {
-      added.forEach((note) => {
-        try {
-          synthRef.current!.triggerAttackRelease(note, "2n")
-        } catch (e) {
-          console.error("Error playing note from store:", note, e)
-        }
-      })
-    }
-
-    prevActiveRef.current = new Set(activeNotes)
-  }, [activeNotes, isSamplerLoaded])
-
   return (
     <div className="w-full">
       {/* Show loading indicator if sampler not loaded */}
