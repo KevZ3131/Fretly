@@ -194,53 +194,25 @@ export default function TabRenderer({
     onNavigate?.(0, slotsRef.current[0]?.positions ?? [])
   }, [drawAll, onNavigate])
 
-  // Keep latest clearTabs in a ref so the function identity stored in the store is stable.
+  // keep latest clearTabs in a ref and register a stable wrapper once
   const clearTabsRef = useRef(clearTabs)
+  useEffect(() => { clearTabsRef.current = clearTabs }, [clearTabs])
   useEffect(() => {
-    clearTabsRef.current = clearTabs
-  }, [clearTabs])
-
-  // Register a stable wrapper in the store once (mount). The wrapper calls the ref.
-  useEffect(() => {
-    // store the stable wrapper (does not change between renders)
-    useStore.getState().setClearTabs(() => {
-      return () => {
-        try {
-          clearTabsRef.current?.()
-        } catch (err) {
-          // ignore
-        }
-      }
+    useStore.getState().setClearTabs(() => () => {
+      try { clearTabsRef.current?.() } catch {}
     })
-    return () => {
-      useStore.getState().setClearTabs(undefined)
-    }
-    // run only once on mount/unmount
+    return () => { useStore.getState().setClearTabs(undefined) }
   }, [])
 
-  // Navigation (connected to score navigation when hasScore)
-  const navigateToIndex = (newIndex: number) => {
+  // Register tab navigator (stable wrapper) once; store will call this when navigating centrally
+  const navigateToIndex = useCallback((newIndex: number) => {
     if (newIndex < 0) newIndex = 0
-
-    // If a score is loaded and the score viewer registered navigation, trigger it.
-    if (hasScore) {
-      try {
-        if (newIndex > caretIndex) {
-          useStore.getState().scoreNext && useStore.getState().scoreNext?.()
-        } else if (newIndex < caretIndex) {
-          useStore.getState().scorePrev && useStore.getState().scorePrev?.()
-        }
-      } catch (err) {
-        // ignore
-      }
-    }
 
     if (!hasScore || !scoreEvents || scoreEvents.length === 0) {
       while (slotsRef.current.length <= newIndex) slotsRef.current.push({ duration: "q", positions: [] })
       setCaretIndex(newIndex)
       drawAll()
       scrollToCaret()
-      // notify parent with the positions for this slot
       onNavigate?.(newIndex, slotsRef.current[newIndex]?.positions ?? [])
       return
     }
@@ -254,20 +226,39 @@ export default function TabRenderer({
     drawAll()
     scrollToCaret()
     onNavigate?.(clamped, slotsRef.current[clamped]?.positions ?? [])
-  }
+  }, [hasScore, scoreEvents, drawAll, onNavigate])
 
-  const handleNext = useCallback(() => navigateToIndex(caretIndex + 1), [caretIndex])
-  const handlePrev = useCallback(() => navigateToIndex(caretIndex - 1), [caretIndex])
+  // keep refs to latest navigateToIndex so the stable wrapper can call it
+  const tabNextRef = useRef<() => void>(null)
+  const tabPrevRef = useRef<() => void>(null)
+  useEffect(() => {
+    tabNextRef.current = () => navigateToIndex(caretIndex + 1)
+    tabPrevRef.current = () => navigateToIndex(caretIndex - 1)
+  }, [navigateToIndex, caretIndex])
+
+  useEffect(() => {
+    useStore.getState().setTabNavigator(
+      () => { try { tabNextRef.current && tabNextRef.current() } catch {} },
+      () => { try { tabPrevRef.current && tabPrevRef.current() } catch {} }
+    )
+    return () => {
+      useStore.getState().setTabNavigator(undefined, undefined)
+    }
+  }, [])
+
+  // Arrow buttons now call the central navigator so they are the same as ScoreViewer arrows
+  const handleNextClick = useCallback(() => { useStore.getState().navigateNext() }, [])
+  const handlePrevClick = useCallback(() => { useStore.getState().navigatePrev() }, [])
 
   // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") { e.preventDefault(); handleNext() }
-      if (e.key === "ArrowLeft") { e.preventDefault(); handlePrev() }
+      if (e.key === "ArrowRight") { e.preventDefault(); handleNextClick() }
+      if (e.key === "ArrowLeft") { e.preventDefault(); handlePrevClick() }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [handleNext, handlePrev])
+  }, [handleNextClick, handlePrevClick])
 
   // Initialize from scoreEvents
   useEffect(() => {
@@ -293,15 +284,9 @@ export default function TabRenderer({
   return (
     <div className="w-full">
       <div className="mb-2 flex items-center gap-2">
-        <button onClick={handlePrev} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">◀</button>
-        <button onClick={handleNext} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">▶</button>
-        {/* Clear Tabs button */}
-        <button
-          onClick={() => clearTabs()}
-          className="px-3 py-1 bg-red-700 text-white rounded hover:bg-red-600"
-        >
-          Clear Tabs
-        </button>
+        <button onClick={handlePrevClick} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">◀</button>
+        <button onClick={handleNextClick} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">▶</button>
+        <button onClick={() => clearTabs()} className="px-3 py-1 bg-red-700 text-white rounded hover:bg-red-600">Clear Tabs</button>
         <div className="text-sm text-slate-300 ml-2">
           Slot {caretIndex + 1} / {Math.max(1, slotsRef.current.length)}
         </div>

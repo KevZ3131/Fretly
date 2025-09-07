@@ -105,8 +105,13 @@ export default function ScoreViewer() {
     }
   }, [])
 
-  const handleNext = () => moveCursorNext()
-  const handlePrev = () => moveCursorPrev()
+  const handleNext = () => {
+    // call central navigator so both score and tab move together
+    useStore.getState().navigateNext()
+  }
+  const handlePrev = () => {
+    useStore.getState().navigatePrev()
+  }
 
   async function uploadFile() {
     const file = fileInputRef.current?.files?.[0]
