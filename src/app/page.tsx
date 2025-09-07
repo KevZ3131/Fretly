@@ -30,7 +30,7 @@ export default function Home() {
             <PianoApp onLoaded={() => setIsLoading(false)} />
             <div className="border-t border-slate-600"></div>
             <FretlyGuitar />
-            <ScoreViewer />
+            <ScoreViewer  />
           </div>
         </Card>
       </div>
