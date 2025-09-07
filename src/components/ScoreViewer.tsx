@@ -169,6 +169,13 @@ export default function ScoreViewer() {
             await osmdRef.current.load(xmlString)
             await osmdRef.current.render()
             initializeCursor()
+
+            // reset tabs when a new score is uploaded
+            try {
+              useStore.getState().clearTabs?.()
+            } catch (err) {
+              // ignore
+            }
           }
 
           setLoading(false)

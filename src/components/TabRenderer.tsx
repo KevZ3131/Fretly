@@ -32,7 +32,6 @@ export default function TabRenderer({
   const [caretIndex, setCaretIndex] = useState(0)
   const slotsRef = useRef<{ duration: string; positions: { str: number; fret: number }[] }[]>([])
   const vfWidthPerSlot = 140
-  const store = useStore()
 
   // Initialize / reset renderer
   useEffect(() => {
@@ -186,22 +185,53 @@ export default function TabRenderer({
     scrollToCaret()
   }, [currentNotes, caretIndex, drawAll])
 
-  // Navigation
+  // clear tabs implementation to register in store
+  const clearTabs = useCallback(() => {
+    slotsRef.current = [{ duration: "q", positions: [] }]
+    setCaretIndex(0)
+    drawAll()
+    scrollToCaret()
+    onNavigate?.(0, slotsRef.current[0]?.positions ?? [])
+  }, [drawAll, onNavigate])
+
+  // Keep latest clearTabs in a ref so the function identity stored in the store is stable.
+  const clearTabsRef = useRef(clearTabs)
+  useEffect(() => {
+    clearTabsRef.current = clearTabs
+  }, [clearTabs])
+
+  // Register a stable wrapper in the store once (mount). The wrapper calls the ref.
+  useEffect(() => {
+    // store the stable wrapper (does not change between renders)
+    useStore.getState().setClearTabs(() => {
+      return () => {
+        try {
+          clearTabsRef.current?.()
+        } catch (err) {
+          // ignore
+        }
+      }
+    })
+    return () => {
+      useStore.getState().setClearTabs(undefined)
+    }
+    // run only once on mount/unmount
+  }, [])
+
+  // Navigation (connected to score navigation when hasScore)
   const navigateToIndex = (newIndex: number) => {
     if (newIndex < 0) newIndex = 0
 
     // If a score is loaded and the score viewer registered navigation, trigger it.
     if (hasScore) {
-      const sNext = store.scoreNext
-      const sPrev = store.scorePrev
-      if (sNext || sPrev) {
-        // choose direction from comparison to caretIndex
+      try {
         if (newIndex > caretIndex) {
-          try { sNext && sNext() } catch {}
+          useStore.getState().scoreNext && useStore.getState().scoreNext?.()
         } else if (newIndex < caretIndex) {
-          try { sPrev && sPrev() } catch {}
+          useStore.getState().scorePrev && useStore.getState().scorePrev?.()
         }
-        // continue to update tab caret/slots as well so UI shows tab movement
+      } catch (err) {
+        // ignore
       }
     }
 
@@ -265,6 +295,13 @@ export default function TabRenderer({
       <div className="mb-2 flex items-center gap-2">
         <button onClick={handlePrev} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">◀</button>
         <button onClick={handleNext} className="px-3 py-1 bg-slate-700 text-white rounded hover:bg-slate-600">▶</button>
+        {/* Clear Tabs button */}
+        <button
+          onClick={() => clearTabs()}
+          className="px-3 py-1 bg-red-700 text-white rounded hover:bg-red-600"
+        >
+          Clear Tabs
+        </button>
         <div className="text-sm text-slate-300 ml-2">
           Slot {caretIndex + 1} / {Math.max(1, slotsRef.current.length)}
         </div>

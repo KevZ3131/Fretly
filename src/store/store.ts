@@ -15,6 +15,10 @@ interface StoreState {
   // play tab positions callback (registered by Fretboard)
   playPositions?: (positions: { string: number; fret: number }[]) => void;
   setPlayPositions: (fn?: (positions: { string: number; fret: number }[]) => void) => void;
+
+  // clear tabs callback (registered by TabRenderer)
+  clearTabs?: () => void;
+  setClearTabs: (fn?: () => void) => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -37,4 +41,8 @@ export const useStore = create<StoreState>((set) => ({
 
   playPositions: undefined,
   setPlayPositions: (fn) => set(() => ({ playPositions: fn })),
+
+  // clear tabs
+  clearTabs: undefined,
+  setClearTabs: (fn) => set(() => ({ clearTabs: fn })),
 }));
