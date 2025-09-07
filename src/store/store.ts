@@ -6,6 +6,7 @@ interface StoreState {
   addActiveNote: (note: string) => void;
   removeActiveNote: (note: string) => void;
   clearActiveNotes: () => void;
+  playNote: (note: string) => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -20,4 +21,10 @@ export const useStore = create<StoreState>((set) => ({
     return { activeNotes: newSet };
   }),
   clearActiveNotes: () => set({ activeNotes: new Set<string>() }),
+  playNote: (note) => {
+    set((state) => ({
+      activeNotes: new Set([...state.activeNotes, note])
+    }))
+    // Note will be played by Piano component through activeNotes subscription
+  },
 }));
