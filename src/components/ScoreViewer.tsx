@@ -217,6 +217,7 @@ export default function ScoreViewer() {
     if (!file) return
     setError(null)
     setLoading(true)
+    clearActiveNotes()
 
     try {
       if (!osmdRef.current && outputRef.current) {

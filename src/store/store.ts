@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 interface StoreState {
   activeNotes: Set<string>;
+  clearCounter: number; // increment to signal clearing of active notes
   setActiveNotes: (notes: Set<string>) => void;
   addActiveNote: (note: string) => void;
   removeActiveNote: (note: string) => void;
@@ -36,6 +37,7 @@ interface StoreState {
 
 export const useStore = create<StoreState>((set, get) => ({
   activeNotes: new Set<string>(),
+  clearCounter: 0,
   setActiveNotes: (notes) => set({ activeNotes: notes }),
   addActiveNote: (note) => set((state) => ({
     activeNotes: new Set([...state.activeNotes, note])
@@ -45,7 +47,12 @@ export const useStore = create<StoreState>((set, get) => ({
     newSet.delete(note);
     return { activeNotes: newSet };
   }),
-  clearActiveNotes: () => set({ activeNotes: new Set<string>() }),
+  clearActiveNotes: () =>
+    set((state) => ({
+      activeNotes: new Set(),
+      clearCounter: state.clearCounter + 1,
+    })),
+
 
   // defaults for navigators / players
   scoreNext: undefined,

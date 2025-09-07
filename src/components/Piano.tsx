@@ -88,7 +88,7 @@ const blackKeys = [
 ]
 
 export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
-  const { activeNotes, addActiveNote, removeActiveNote, clearActiveNotes } = useStore()
+  const { activeNotes, addActiveNote, removeActiveNote, clearActiveNotes, clearCounter } = useStore()
   const [isCtrlPressed, setIsCtrlPressed] = useState(false)
   const [selectedChordNotes, setSelectedChordNotes] = useState<Set<string>>(new Set())
   const [selectedNote, setSelectedNote] = useState<string>("")
@@ -155,7 +155,11 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
         synthRef.current.dispose()
       }
     }
-  }, [onLoaded])
+  }, [])
+
+  useEffect(() => {
+    setSelectedChordNotes(new Set())
+  }, [clearCounter])
 
   // Scroll to G2 after initial render
   useEffect(() => {
@@ -204,7 +208,7 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
       const timeoutId = setTimeout(() => {
         // synthRef.current?.releaseAll() // <-- Remove this line
         shouldPlayChord.forEach((chordNote) => {
-          if (synthRef.current) {
+          if (synthRef.current && chordNote != "") {
             synthRef.current.triggerAttackRelease(chordNote, "2n")
           }
         })
@@ -220,9 +224,11 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
       await startAudio()
       if (!isSamplerLoaded) return // Prevent playing before loaded
 
-      if (synthRef.current && !activeNotes.has(note)) {
-        synthRef.current.triggerAttack(note)
-        addActiveNote(note)
+      if (synthRef.current?.loaded && !activeNotes.has(note)) {
+        if (note != "") {
+          synthRef.current.triggerAttack(note)
+          addActiveNote(note)
+        }
       } else if (synthRef.current) {
         synthRef.current.triggerAttack(note)
       }
