@@ -378,10 +378,12 @@ export default function FretlyGuitar({
             {/* Fretboard + chord chart side by side */}
             <div className="flex flex-row items-start gap-6">
                 {/* Scrollable fretboard + numbers */}
-                <div className="overflow-x-auto flex-1 scrollbar-custom">
+                <div
+                    className="overflow-x-auto flex-1 scrollbar-custom"
+                >
                     <div
                         className="relative bg-gradient-to-b from-[#4a3f34] to-[#3b2f24] rounded-lg overflow-hidden"
-                        style={{ height: 180, minWidth: "1075px", width: "100%" }}
+                        style={{ height: 180, width: "100%" }}
                     >
                         {/* Fretlines */}
                         <div className="absolute inset-0">
@@ -511,7 +513,7 @@ export default function FretlyGuitar({
                         </div>
                     </div>
                     {/* Fret numbers below the fretboard */}
-                    <div className="mt-2 flex justify-between text-xs text-slate-200" style={{ minWidth: "1075px", width: "100%" }}>
+                    <div className="mt-2 flex justify-between text-xs text-slate-200" style={{ width: "100%" }}>
                         {Array.from({ length: FRETS + 1 }).map((_, fi) => (
                             <div key={`fnum-${fi}`} className="flex-1 text-center">{fi}</div>
                         ))}

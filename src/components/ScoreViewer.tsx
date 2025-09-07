@@ -222,8 +222,8 @@ export default function ScoreViewer() {
       if (!osmdRef.current && outputRef.current) {
         const OSMD = (OpenSheetMusicDisplay as any).OpenSheetMusicDisplay || OpenSheetMusicDisplay
         osmdRef.current = new OSMD(outputRef.current, {
-          autoResize: true,
-          drawTitle: true,
+          autoResize: false,
+          drawTitle: false,
           drawingParameters: "compacttight",
           renderSingleHorizontalStaffline: true,
           cursorOptions: {
@@ -232,6 +232,14 @@ export default function ScoreViewer() {
             alpha: 0.8,
           },
         })
+
+        const svg = outputRef.current.querySelector("svg") as SVGSVGElement
+        if (svg) {
+            svg.style.transform = `scale(${SCORE_SCALE})`
+            svg.style.transformOrigin = "top left"
+            svg.style.width = `${100 / SCORE_SCALE}%`   // compensate for horizontal scaling
+            svg.style.height = "auto"
+        }
 
         // register score navigation functions in the store
         useStore.getState().setScoreNavigator(
@@ -325,6 +333,8 @@ export default function ScoreViewer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const SCORE_SCALE = 0.5
+
   return (
     // made full width so it matches other elements inside the Card
     <div className="w-full my-8">
@@ -383,13 +393,18 @@ export default function ScoreViewer() {
       {loading && <div className="text-blue-400 mb-2">Loading and parsing score...</div>}
       {error && <div className="text-red-500 mb-2">{error}</div>}
 
-      <div
-        id="output"
-        ref={outputRef}
-        // ensure the rendered score area uses full width of the parent
-        className="bg-white rounded shadow p-4 overflow-auto w-full"
-        style={{ minHeight: 400 }}
-      />
+        <div
+            className="bg-white rounded shadow p-4 overflow-x-auto overflow-y-hidden w-full"
+            style={{ maxHeight: 200 }} // actual scrollable area
+        >
+            <div
+                ref={outputRef}
+                style={{
+                    transform: `scale(${SCORE_SCALE})`,
+                    transformOrigin: "top left"
+                }}
+            />
+        </div>
     </div>
   )
 }
