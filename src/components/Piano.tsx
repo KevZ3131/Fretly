@@ -87,7 +87,7 @@ const blackKeys = [
   "C#6",
 ]
 
-export default function PianoApp() {
+export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
   const { activeNotes, addActiveNote, removeActiveNote, clearActiveNotes } = useStore()
   const [isCtrlPressed, setIsCtrlPressed] = useState(false)
   const [selectedChordNotes, setSelectedChordNotes] = useState<Set<string>>(new Set())
@@ -96,6 +96,7 @@ export default function PianoApp() {
   const [isAudioStarted, setIsAudioStarted] = useState(false)
   const [shouldPlayChord, setShouldPlayChord] = useState<Set<string> | null>(null)
   const [isSamplerLoaded, setIsSamplerLoaded] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   let error: number = 2; 
 
@@ -134,8 +135,18 @@ export default function PianoApp() {
       },
       baseUrl: "https://tonejs.github.io/audio/salamander/",
       onload: () => {
-        console.log("[v0] Salamander piano samples loaded successfully")
         setIsSamplerLoaded(true)
+        setTimeout(() => {
+          if (scrollRef.current) {
+            const g2Index = whiteKeys.indexOf("G2")
+            if (g2Index !== -1) {
+              const keyWidth = 64
+              const scrollLeft = g2Index * keyWidth - 100
+              scrollRef.current.scrollLeft = scrollLeft
+            }
+          }
+          if (onLoaded) onLoaded()
+        }, 0)
       },
     }).toDestination()
 
@@ -144,7 +155,19 @@ export default function PianoApp() {
         synthRef.current.dispose()
       }
     }
-  }, [])
+  }, [onLoaded])
+
+  // Scroll to G2 after initial render
+  useEffect(() => {
+    if (scrollRef.current) {
+      const g2Index = whiteKeys.indexOf("G2")
+      if (g2Index !== -1) {
+        const keyWidth = 64 // px, matches w-16
+        const scrollLeft = g2Index * keyWidth - 100 // offset for visibility
+        scrollRef.current.scrollLeft = scrollLeft
+      }
+    }
+  }, []) // Only runs once after mount
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -222,12 +245,6 @@ export default function PianoApp() {
       if (!isSamplerLoaded) return
 
       if (isCtrlPressed) {
-        // Clear any previously selected regular note when starting chord selection
-        if (selectedNote) {
-          setSelectedNote("")
-          clearActiveNotes()
-        }
-
         // Compute new chord notes set
         const newSet = new Set(selectedChordNotes)
         const wasInChord = newSet.has(note)
@@ -238,6 +255,7 @@ export default function PianoApp() {
           }
         } else {
           newSet.add(note)
+          newSet.add(selectedNote)
           addActiveNote(note)
         }
 
@@ -256,7 +274,11 @@ export default function PianoApp() {
         setSelectedNote(note)
         setSelectedChordNotes(new Set())
         clearActiveNotes()
-      } else {
+      } else if (selectedNote === note) {
+        setSelectedNote("")
+        clearActiveNotes()
+      }
+      else {
         playNote(note)
         setSelectedNote(note)
       }
@@ -355,7 +377,7 @@ export default function PianoApp() {
         </p>
       </div>
 
-      <div className="overflow-x-auto scrollbar-custom">
+      <div className="overflow-x-auto scrollbar-custom" ref={scrollRef}>
         <div className="relative min-w-[2800px] h-40">
           <div className="flex">
             {whiteKeys.map((note, index) => (
@@ -419,17 +441,6 @@ export default function PianoApp() {
       <div className="mt-4 flex justify-center gap-4">
         <Button
           variant="outline"
-          onClick={() => {
-            if (synthRef.current) {
-              synthRef.current.releaseAll()
-            }
-          }}
-          className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
-        >
-          Stop All Notes
-        </Button>
-        <Button
-          variant="outline"
           onClick={replayChord}
           className="bg-blue-700 border-blue-600 text-white hover:bg-blue-600"
         >
@@ -449,6 +460,17 @@ export default function PianoApp() {
           className="bg-green-700 border-green-600 text-white hover:bg-green-600"
         >
           Clear Chord ({selectedChordNotes.size} notes)
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (synthRef.current) {
+              synthRef.current.releaseAll()
+            }
+          }}
+          className="bg-slate-500 hover:bg-slate-600 border-slate-500 text-white"
+        >
+          Stop All Notes
         </Button>
       </div>
 

@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom'
 import * as Tone from "tone"
 import Chord from '@tombatossals/react-chords/lib/Chord'
 import { useStore } from "@/store/store"
+import { Button } from "./ui/button";
 
 const STANDARD_TUNING_MIDI = [64, 59, 55, 50, 45, 40];
 const FRETS = 24;
@@ -237,11 +238,21 @@ export default function FretlyGuitar() {
             frets.push(found ? found.fretIndex : -1);
         }
 
-        const minFret = Math.min(...frets.filter(f => f >= 1));
+        // Calculate min/max fret (excluding open/muted strings)
+        const usedFrets = frets.filter(f => f > 0);
+        const minFret = usedFrets.length > 0 ? Math.min(...usedFrets) : 0;
+        const maxFret = usedFrets.length > 0 ? Math.max(...usedFrets) : 0;
+        const fretRange = maxFret - minFret + 1;
 
+        // If the range is too large, signal can't render
+        if (fretRange > instrument.fretsOnChord - 1) {
+            return { cantRender: true };
+        }
+
+        // Adjust frets relative to minFret
         for (let i = 0; i < frets.length; i++) {
             if (frets[i] >= 1) {
-                frets[i] = frets[i] - minFret + 1; // Adjust frets relative to minFret
+                frets[i] = frets[i] - minFret + 1;
             }
         }
         if (minFret > 1) {
@@ -431,11 +442,24 @@ export default function FretlyGuitar() {
                         minHeight: 180,
                     }}
                     >
-                    <Chord
-                        chord={getChordChartFromSelectedFrets(selectedChordFrets)}
-                        instrument={instrument}
-                        lite={lite}
-                    />
+                    {/* Render message if can't render chord */}
+                    {(() => {
+                        const chordChart = getChordChartFromSelectedFrets(selectedChordFrets);
+                        if ((chordChart as any).cantRender) {
+                            return (
+                                <span className="text-red-600 font-semibold text-center px-2">
+                                    Can't render this chord
+                                </span>
+                            );
+                        }
+                        return (
+                            <Chord
+                                chord={chordChart}
+                                instrument={instrument}
+                                lite={lite}
+                            />
+                        );
+                    })()}
                     </div>
                 </div>
                 )}
@@ -444,28 +468,28 @@ export default function FretlyGuitar() {
             <div className="mt-4 flex gap-6 justify-center items-start">
                 {/* Buttons */}
                 <div className="flex gap-4">
-                <button
+                <Button
                     onClick={replayChord}
-                    className="bg-blue-700 border border-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    className="bg-blue-700 border border-blue-600 text-white rounded hover:bg-blue-600"
                 >
                     Replay Chord
-                </button>
-                <button
+                </Button>
+                <Button
                     onClick={clearChord}
-                    className="bg-green-700 border border-green-600 text-white px-4 py-2 rounded hover:bg-green-600"
+                    className="bg-green-700 border border-green-600 text-white rounded hover:bg-green-600"
                 >
                     Clear Chord ({selectedChordFrets.length} notes)
-                </button>
-                <button
+                </Button>
+                <Button
                     className={`px-4 border py-2 rounded text-white transition ${
                     showChordChart
-                        ? "bg-blue-700 hover:bg-blue-600 border-blue-500"
-                        : "bg-slate-700 hover:bg-slate-600 border-slate-500"
+                        ? "bg-slate-600 hover:bg-slate-700 border-slate-600"
+                        : "bg-slate-500 hover:bg-slate-600 border-slate-500"
                     }`}
                     onClick={() => setShowChordChart((v) => !v)}
                 >
                     {showChordChart ? "Hide Chord Chart" : "Show Chord Chart"}
-                </button>
+                </Button>
                 </div>
             </div>
             <style jsx>{`
