@@ -204,6 +204,17 @@ export default function TabRenderer({
     return () => { useStore.getState().setClearTabs(undefined) }
   }, [])
 
+  // NEW: subscribe to numeric signal and trigger clear when it increments
+  const clearSignal = useStore(state => state.clearTabsSignal)
+  useEffect(() => {
+    if (!clearSignal) return // ignore initial 0
+    try {
+      clearTabsRef.current && clearTabsRef.current()
+    } catch (err) {
+      // ignore
+    }
+  }, [clearSignal])
+
   // Register tab navigator (stable wrapper) once; store will call this when navigating centrally
   const navigateToIndex = useCallback((newIndex: number) => {
     if (newIndex < 0) newIndex = 0

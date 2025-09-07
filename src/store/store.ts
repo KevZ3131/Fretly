@@ -28,6 +28,10 @@ interface StoreState {
   // clear tabs callback (registered by TabRenderer)
   clearTabs?: () => void;
   setClearTabs: (fn?: () => void) => void;
+
+  // new: numeric signal for clearing tabs (avoid timing/race issues)
+  clearTabsSignal: number;
+  incrementClearTabs: () => void;
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -71,4 +75,8 @@ export const useStore = create<StoreState>((set, get) => ({
   // clear tabs
   clearTabs: undefined,
   setClearTabs: (fn) => set(() => ({ clearTabs: fn })),
+
+  // new: signal and incrementer
+  clearTabsSignal: 0,
+  incrementClearTabs: () => set((state) => ({ clearTabsSignal: state.clearTabsSignal + 1 })),
 }));

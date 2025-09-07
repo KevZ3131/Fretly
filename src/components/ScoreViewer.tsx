@@ -283,9 +283,9 @@ export default function ScoreViewer() {
                 });
             });
 
-            // reset tabs when a new score is uploaded
+            // reset tabs when a new score is uploaded — use signal to avoid timing issues
             try {
-              useStore.getState().clearTabs?.()
+              useStore.getState().incrementClearTabs()
             } catch (err) {
               // ignore
             }
