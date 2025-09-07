@@ -2,12 +2,17 @@
 
 import PianoApp from "@/components/Piano";
 import FretlyGuitar from "@/components/Fretboard";
+import TabRenderer from "@/components/TabRenderer";
 import { Card } from "@/components/ui/card"
 import { useState } from "react";
 import ScoreViewer from "@/components/ScoreViewer";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
+  // holds selections made live on fretboard (user clicks)
+  const [currentTabNotes, setCurrentTabNotes] = useState<{ string: number; fret: number }[]>([]);
+  // holds the positions that correspond to the TabRenderer caret slot (when you navigate)
+  const [selectedFromTab, setSelectedFromTab] = useState<{ string: number; fret: number }[]>([]);
 
   return (
     <main className="min-h-screen bg-slate-900 p-4 relative">
@@ -29,7 +34,22 @@ export default function Home() {
           <div className="space-y-8">
             <PianoApp onLoaded={() => setIsLoading(false)} />
             <div className="border-t border-slate-600"></div>
-            <FretlyGuitar />
+            {/* pass both the setter to receive user selections and externalSelectedFrets to force selection on navigation */}
+            <FretlyGuitar
+              onSelectionChange={setCurrentTabNotes}
+              externalSelectedFrets={selectedFromTab}
+            />
+            <TabRenderer
+              hasScore={false}
+              currentNotes={currentTabNotes}
+              // When TabRenderer navigation changes, update selectedFromTab so fretboard highlights match the slot
+              onNavigate={(idx, positions) => {
+                // positions are in {str, fret} internal format; map to parent format {string, fret}
+                const mapped = (positions || []).map(p => ({ string: p.str, fret: p.fret }))
+                setSelectedFromTab(mapped)
+                console.log("Tab navigate:", idx, mapped)
+              }}
+            />
             <ScoreViewer  />
           </div>
         </Card>

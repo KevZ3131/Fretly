@@ -7,6 +7,8 @@ import Chord from '@tombatossals/react-chords/lib/Chord'
 import { useStore } from "@/store/store"
 import { Button } from "./ui/button";
 
+type SelectionCallback = (notes: { string: number; fret: number }[]) => void
+
 const STANDARD_TUNING_MIDI = [64, 59, 55, 50, 45, 40];
 const FRETS = 24;
 const DOT_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
@@ -23,7 +25,14 @@ type FretState = {
   [key: string]: boolean | undefined; // extensible
 };
 
-export default function FretlyGuitar() {
+// Modify the component signature to accept optional callbacks and external selection
+export default function FretlyGuitar({
+  onSelectionChange,
+  externalSelectedFrets,
+}: {
+  onSelectionChange?: SelectionCallback
+  externalSelectedFrets?: { string: number; fret: number }[]
+} = {}) {
     const { activeNotes } = useStore();
     const [fretboard, setFretboard] = useState<Map<number, FretState>[]>(
         () => Array.from({ length: 6 }, () => new Map())
@@ -171,6 +180,49 @@ export default function FretlyGuitar() {
         });
         setSelectedChordFrets([]);
     }
+
+    // When externalSelectedFrets changes (e.g. user navigated tab caret), update fretboard selected state
+    useEffect(() => {
+        if (!externalSelectedFrets) return
+
+        // Build a quick lookup by string -> fret
+        const lookup = new Map<number, number>()
+        for (const p of externalSelectedFrets) {
+            lookup.set(p.string, p.fret)
+        }
+
+        setFretboard(prev => {
+            const newBoard = prev.map((stringMap, si) => {
+                const newMap = new Map(stringMap)
+                // Clear existing selected flags
+                for (const [fi, state] of newMap.entries()) {
+                    if (state.selected) {
+                        newMap.set(fi, { ...state, selected: false })
+                    }
+                }
+                // If there's a selection for this string, set it
+                const targetFret = lookup.get(si)
+                if (typeof targetFret === "number" && targetFret >= 0) {
+                    const old = newMap.get(targetFret) ?? {}
+                    newMap.set(targetFret, { ...old, selected: true })
+                }
+                return newMap
+            })
+            return newBoard
+        })
+
+        // Update internal selectedChordFrets state to reflect external selection
+        const newSelected = externalSelectedFrets.map(p => ({ stringIndex: p.string, fretIndex: p.fret }))
+        setSelectedChordFrets(newSelected)
+    }, [externalSelectedFrets])
+
+    // Notify parent when selectedChordFrets changes
+    useEffect(() => {
+        if (onSelectionChange) {
+            const notes = selectedChordFrets.map(s => ({ string: s.stringIndex, fret: s.fretIndex }));
+            onSelectionChange(notes);
+        }
+    }, [selectedChordFrets, onSelectionChange]);
 
     function isSelected(stringIndex: number, fretIndex: number): boolean {
         return fretboard[stringIndex].get(fretIndex)?.selected === true;
