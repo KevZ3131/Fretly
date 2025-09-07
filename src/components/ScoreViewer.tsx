@@ -65,7 +65,7 @@ export default function ScoreViewer() {
       },
       baseUrl: "https://tonejs.github.io/audio/salamander/",
     }).toDestination();
-
+    
     return () => {
       if (synthRef.current) {
         synthRef.current.dispose();
@@ -236,10 +236,10 @@ export default function ScoreViewer() {
         // register score navigation functions in the store
         useStore.getState().setScoreNavigator(
           () => {
-            try { osmdRef.current?.cursor?.next() } catch {}
+            try { moveCursorNext() } catch {}
           },
           () => {
-            try { osmdRef.current?.cursor?.previous() } catch {}
+            try { moveCursorPrev() } catch {}
           }
         )
       }
@@ -273,6 +273,15 @@ export default function ScoreViewer() {
             await osmdRef.current.load(xmlString)
             await osmdRef.current.render()
             initializeCursor()
+
+            const currentEntries = osmdRef.current.cursor.iterator.currentVoiceEntries;
+            currentEntries.forEach((voiceEntry: any) => {
+                voiceEntry.Notes.forEach((note: any) => {
+                const noteName = pitchToNoteName(note.pitch); 
+                addActiveNote(noteName);
+                playNote(noteName);
+                });
+            });
 
             // reset tabs when a new score is uploaded
             try {

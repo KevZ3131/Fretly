@@ -55,7 +55,6 @@ export default function Home() {
                 try {
                   store.playPositions?.(mapped)
                 } catch (err) { /* ignore */ }
-                console.log("Tab navigate:", idx, mapped)
               }}
             />
             <ScoreViewer  />
