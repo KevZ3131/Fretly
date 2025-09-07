@@ -1,10 +1,12 @@
 "use client"
 
-import { useRef, useState, useEffect } from "react"
+import { useRef, useState, useEffect, useCallback } from "react"
 // @ts-ignore
 import OpenSheetMusicDisplay from "opensheetmusicdisplay"
 import { unzipSync, strFromU8 } from "fflate"
 import { useStore } from "@/store/store"
+import * as Tone from "tone"
+import { Instrument } from "opensheetmusicdisplay"
 
 export default function ScoreViewer() {
   const [error, setError] = useState<string | null>(null)
@@ -12,12 +14,10 @@ export default function ScoreViewer() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const outputRef = useRef<HTMLDivElement>(null)
   const osmdRef = useRef<any>(null)
+  const synthRef = useRef<Tone.Sampler | null>(null)
   const playIntervalRef = useRef<number | null>(null)
   const isPlayingRef = useRef(false)
   const { addActiveNote, clearActiveNotes } = useStore()
-
-  const [cursorPosition, setCursorPosition] = useState({ measureIndex: 0, noteIndex: 0 })
-  const [totalNotes, setTotalNotes] = useState(0)
 
   const isLikelyMusicXML = (xml: string | null) => {
     if (!xml) return false
@@ -29,6 +29,50 @@ export default function ScoreViewer() {
       lowered.includes("<part ")
     )
   }
+
+  useEffect(() => {
+    synthRef.current = new Tone.Sampler({
+      urls: {
+        A0: "A0.mp3",
+        C1: "C1.mp3",
+        "D#1": "Ds1.mp3",
+        "F#1": "Fs1.mp3",
+        A1: "A1.mp3",
+        C2: "C2.mp3",
+        "D#2": "Ds2.mp3",
+        "F#2": "Fs2.mp3",
+        A2: "A2.mp3",
+        C3: "C3.mp3",
+        "D#3": "Ds3.mp3",
+        "F#3": "Fs3.mp3",
+        A3: "A3.mp3",
+        C4: "C4.mp3",
+        "D#4": "Ds4.mp3",
+        "F#4": "Fs4.mp3",
+        A4: "A4.mp3",
+        C5: "C5.mp3",
+        "D#5": "Ds5.mp3",
+        "F#5": "Fs5.mp3",
+        A5: "A5.mp3",
+        C6: "C6.mp3",
+        "F#6": "Fs6.mp3",
+        A6: "A6.mp3",
+        C7: "C7.mp3",
+        "D#7": "Ds7.mp3",
+        "F#7": "Fs7.mp3",
+        A7: "A7.mp3",
+        C8: "C8.mp3",
+      },
+      baseUrl: "https://tonejs.github.io/audio/salamander/",
+    }).toDestination();
+
+    return () => {
+      if (synthRef.current) {
+        synthRef.current.dispose();
+      }
+    };
+  }, []);
+
 
   // Initialize OSMD cursor and force style
   const initializeCursor = () => {
@@ -52,19 +96,72 @@ export default function ScoreViewer() {
     }
   }
 
+  const pitchToNoteName = (pitch: any): string => {
+    if (!pitch) return "";
+
+    // OSMD halfTone numbers start from C0 = 0 usually
+    const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+    // Use halfTone modulo 12 to get note letter
+    const noteIndex = pitch.halfTone % 12;
+    const octave = pitch.octave + Math.floor(pitch.halfTone / 12) - 1;
+
+    let note = noteNames[noteIndex] || "?";
+
+    // Apply accidental if needed
+    if (pitch.accidental) {
+        if (pitch.accidental === -2) note = note.replace("#", "bb");
+        else if (pitch.accidental === -1) note = note.replace("#", "b");
+        else if (pitch.accidental === 1) note = note + "#";
+    }
+
+    return note + octave;
+  }
+
   const moveCursorNext = () => {
     if (!osmdRef.current?.cursor) return
     try {
+      clearActiveNotes()
       osmdRef.current.cursor.next() // move to next voice entry
+      const currentEntries = osmdRef.current.cursor.iterator.currentVoiceEntries;
+
+      currentEntries.forEach((voiceEntry: any) => {
+        voiceEntry.Notes.forEach((note: any) => {
+          const noteName = pitchToNoteName(note.pitch); 
+          addActiveNote(noteName);
+          playNote(noteName);
+        });
+      });
     } catch (err) {
       console.warn("Next navigation error:", err)
     }
   }
 
+  const startAudio = async () => {
+      await Tone.start()
+  }
+
+  const playNote = async (note: string) => {
+        await startAudio()
+        if (synthRef.current) {
+          synthRef.current.triggerAttack(note)
+        }
+  }
+
   const moveCursorPrev = () => {
     if (!osmdRef.current?.cursor) return
     try {
-      osmdRef.current.cursor.previous() // move to previous voice entry
+      clearActiveNotes()
+      osmdRef.current.cursor.previous() 
+      const currentEntries = osmdRef.current.cursor.iterator.currentVoiceEntries;
+
+      currentEntries.forEach((voiceEntry: any) => {
+        voiceEntry.Notes.forEach((note: any) => {
+          const noteName = pitchToNoteName(note.pitch); 
+          addActiveNote(noteName);
+          playNote(noteName);
+        });
+      });
     } catch (err) {
       console.warn("Prev navigation error:", err)
     }
@@ -233,14 +330,6 @@ export default function ScoreViewer() {
 
       {loading && <div className="text-blue-400 mb-2">Loading and parsing score...</div>}
       {error && <div className="text-red-500 mb-2">{error}</div>}
-
-      <div className="bg-slate-800 p-3 rounded mb-4">
-        <div className="text-sm text-slate-300">
-          Position: Measure {cursorPosition.measureIndex + 1}, Note {cursorPosition.noteIndex + 1}
-          {totalNotes > 0 && ` of ${totalNotes}`}
-        </div>
-      </div>
-
       <div
         id="output"
         ref={outputRef}
