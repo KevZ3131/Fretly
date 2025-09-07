@@ -144,7 +144,9 @@ export default function ScoreViewer() {
   const playNote = async (note: string) => {
         await startAudio()
         if (synthRef.current) {
-          synthRef.current.triggerAttack(note)
+          if (note) {
+            synthRef.current.triggerAttack(note)
+          }
         }
   }
 
