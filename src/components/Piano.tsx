@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import * as Tone from "tone"
-import { useStore } from "@/store/store"
+import { useChordNotesStore, useSelectedNoteStore, useStore } from "@/store/store"
 
 const whiteKeys = [
   "C0",
@@ -89,9 +89,9 @@ const blackKeys = [
 
 export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
   const { activeNotes, addActiveNote, removeActiveNote, clearActiveNotes } = useStore()
+  const { chordNotes, setChordNotes } = useChordNotesStore()
   const [isCtrlPressed, setIsCtrlPressed] = useState(false)
-  const [selectedChordNotes, setSelectedChordNotes] = useState<Set<string>>(new Set())
-  const [selectedNote, setSelectedNote] = useState<string>("")
+  const { selectedNote, setSelectedNote } = useSelectedNoteStore()
   const synthRef = useRef<Tone.Sampler | null>(null)
   const [isAudioStarted, setIsAudioStarted] = useState(false)
   const [shouldPlayChord, setShouldPlayChord] = useState<Set<string> | null>(null)
@@ -248,7 +248,7 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
 
       if (isCtrlPressed) {
         // Compute new chord notes set
-        const newSet = new Set(selectedChordNotes)
+        const newSet = new Set(chordNotes)
         const wasInChord = newSet.has(note)
         if (wasInChord) {
           newSet.delete(note)
@@ -257,24 +257,26 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
           }
         } else {
           newSet.add(note)
-          newSet.add(selectedNote)
+          if (selectedNote != "") {
+            newSet.add(selectedNote)
+          }
           addActiveNote(note)
         }
 
-        setSelectedChordNotes(newSet)
+        setChordNotes(newSet)
         setShouldPlayChord(newSet)
         return
-      } else if (selectedChordNotes.has(note)) {
-        const newSet = new Set(selectedChordNotes)
+      } else if (chordNotes.has(note)) {
+        const newSet = new Set(chordNotes)
         newSet.delete(note)
-        setSelectedChordNotes(newSet)
+        setChordNotes(newSet)
         setShouldPlayChord(newSet)
         setTimeout(() => stopNote(note), 150)
-      } else if (selectedNote != note && selectedChordNotes) {
+      } else if (selectedNote != note && chordNotes) {
         stopNote(selectedNote)
         playNote(note)
         setSelectedNote(note)
-        setSelectedChordNotes(new Set())
+        setChordNotes(new Set())
         clearActiveNotes()
       } else if (selectedNote === note) {
         setSelectedNote("")
@@ -291,7 +293,7 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
       selectedNote,
       stopNote,
       activeNotes,
-      selectedChordNotes,
+      chordNotes,
       isSamplerLoaded,
       addActiveNote,
       removeActiveNote,
@@ -360,12 +362,14 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
   const replayChord = useCallback(() => {
     if (!isSamplerLoaded) return
     // synthRef.current?.releaseAll() // <-- Remove this line if present
-    selectedChordNotes.forEach((note) => {
+    chordNotes.forEach((note) => {
       if (synthRef.current) {
-        synthRef.current.triggerAttackRelease(note, "2n")
+        if (note != "") {
+          synthRef.current.triggerAttackRelease(note, "2n")
+        }
       }
     })
-  }, [selectedChordNotes, isSamplerLoaded])
+  }, [chordNotes, isSamplerLoaded])
 
   return (
     <div className="w-full">
@@ -450,17 +454,17 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
         <Button
           variant="outline"
           onClick={() => {
-            selectedChordNotes.forEach((note) => {
+            chordNotes.forEach((note) => {
               if (synthRef.current) {
                 synthRef.current.triggerRelease(note)
               }
             })
-            setSelectedChordNotes(new Set())
-            selectedChordNotes.forEach((note) => removeActiveNote(note))
+            setChordNotes(new Set())
+            chordNotes.forEach((note) => removeActiveNote(note))
           }}
           className="bg-green-700 border-green-600 text-white hover:bg-green-600"
         >
-          Clear Chord ({selectedChordNotes.size} notes)
+          Clear Chord ({chordNotes.size} notes)
         </Button>
         <Button
           variant="outline"

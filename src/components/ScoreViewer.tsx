@@ -4,13 +4,15 @@ import { useRef, useState, useEffect, useCallback } from "react"
 // @ts-ignore
 import OpenSheetMusicDisplay from "opensheetmusicdisplay"
 import { unzipSync, strFromU8 } from "fflate"
-import { useStore } from "@/store/store"
+import { useChordNotesStore, useSelectedNoteStore, useStore } from "@/store/store"
 import * as Tone from "tone"
 import { Instrument } from "opensheetmusicdisplay"
 
 export default function ScoreViewer() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const { chordNotes, setChordNotes } = useChordNotesStore()
+  const { selectedNote, setSelectedNote } = useSelectedNoteStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const outputRef = useRef<HTMLDivElement>(null)
   const osmdRef = useRef<any>(null)
@@ -123,11 +125,13 @@ export default function ScoreViewer() {
     try {
       osmdRef.current.cursor.next() // move to next voice entry
       const currentEntries = osmdRef.current.cursor.iterator.currentVoiceEntries;
-
+      clearActiveNotes()
+      setChordNotes(new Set())
       currentEntries.forEach((voiceEntry: any) => {
         voiceEntry.Notes.forEach((note: any) => {
           const noteName = pitchToNoteName(note.pitch); 
           addActiveNote(noteName);
+          setSelectedNote(noteName);
           playNote(noteName);
         });
       });
@@ -153,6 +157,8 @@ export default function ScoreViewer() {
     if (!osmdRef.current?.cursor) return
     try {
       clearActiveNotes()
+      setChordNotes(new Set())
+      
       osmdRef.current.cursor.previous() 
       const currentEntries = osmdRef.current.cursor.iterator.currentVoiceEntries;
 
@@ -160,6 +166,7 @@ export default function ScoreViewer() {
         voiceEntry.Notes.forEach((note: any) => {
           const noteName = pitchToNoteName(note.pitch); 
           addActiveNote(noteName);
+          setSelectedNote(noteName);
           playNote(noteName);
         });
       });
@@ -217,6 +224,7 @@ export default function ScoreViewer() {
     setError(null)
     setLoading(true)
     clearActiveNotes()
+    setChordNotes(new Set())
 
     try {
       if (!osmdRef.current && outputRef.current) {

@@ -34,6 +34,16 @@ interface StoreState {
   incrementClearTabs: () => void;
 }
 
+interface StoreChordNotes {
+  setChordNotes: (notes: Set<string>) => void;
+  chordNotes: Set<string>;
+}
+
+interface StoreSelectedNote {
+  setSelectedNote: (note: string) => void;
+  selectedNote: string;
+}
+
 export const useStore = create<StoreState>((set, get) => ({
   activeNotes: new Set<string>(),
   setActiveNotes: (notes) => set({ activeNotes: notes }),
@@ -79,4 +89,14 @@ export const useStore = create<StoreState>((set, get) => ({
   // new: signal and incrementer
   clearTabsSignal: 0,
   incrementClearTabs: () => set((state) => ({ clearTabsSignal: state.clearTabsSignal + 1 })),
+}));
+
+export const useChordNotesStore = create<StoreChordNotes>((set, get) => ({
+  chordNotes: new Set<string>(),
+  setChordNotes: (notes) => set({ chordNotes: notes }),
+}));
+
+export const useSelectedNoteStore = create<StoreSelectedNote>((set, get) => ({
+  selectedNote: "",
+  setSelectedNote: (note: string) => set({ selectedNote: note}),
 }));
