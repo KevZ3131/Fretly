@@ -53,6 +53,8 @@ const whiteKeys = [
   "E6",
 ]
 
+// comment
+
 const blackKeys = [
   "C#0",
   "D#0",
