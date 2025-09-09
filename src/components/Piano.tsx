@@ -85,6 +85,7 @@ const blackKeys = [
   "G#5",
   "A#5",
   "C#6",
+  "D#6",
 ]
 
 export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
@@ -125,6 +126,7 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
         "F#5": "Fs5.mp3",
         A5: "A5.mp3",
         C6: "C6.mp3",
+        "D#6": "Ds6.mp3",
         "F#6": "Fs6.mp3",
         A6: "A6.mp3",
         C7: "C7.mp3",
@@ -386,27 +388,29 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
         <div className="relative min-w-[2800px] h-40">
           <div className="flex">
             {whiteKeys.map((note, index) => (
-              <button
-                key={note}
-                className={`
-                  w-16 h-32 border-2 border-slate-600 transition-all duration-75
-                  ${index === 0 ? "rounded-l-lg" : ""}
-                  ${index === whiteKeys.length - 1 ? "rounded-r-lg" : ""}
-                `}
-                style={{
-                  backgroundColor: activeNotes.has(note) ? "#60a5fa" : "#ffffff",
-                  borderColor: activeNotes.has(note) ? "#93c5fd" : "#475569",
-                  boxShadow: activeNotes.has(note) ? "0 10px 15px -3px rgba(59, 130, 246, 0.5)" : "none",
-                }}
-                onMouseDown={() => handleMouseDown(note)}
-              >
-                <span
-                  className="text-xs text-slate-600 mt-auto block pb-4 font-medium"
-                  style={{ position: "relative", bottom: "calc(-50% + 10px)" }}
-                >
-                  {note}
-                </span>
-              </button>
+<button
+  key={note}
+  onMouseDown={() => handleMouseDown(note)}
+  className={`
+    w-16 h-32 border-2 transition-all duration-75
+    ${index === 0 ? "rounded-l-lg" : ""}
+    ${index === whiteKeys.length - 1 ? "rounded-r-lg" : ""}
+    ${
+      activeNotes.has(note)
+        ? "bg-blue-400 border-blue-300 shadow-lg shadow-blue-500/50"
+        : "bg-white border-slate-600 hover:bg-slate-100 hover:border-slate-500"
+    }
+  `}
+>
+  <span
+    className="text-xs text-slate-600 mt-auto block pb-4 font-medium relative"
+    style={{ bottom: "calc(-50% + 10px)" }}
+  >
+    {note}
+  </span>
+</button>
+
+
             ))}
           </div>
 
