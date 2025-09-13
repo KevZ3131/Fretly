@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react"
 // Force import from v5’s ESM entry
 // @ts-ignore
 import { Renderer, TabStave, TabNote, Voice, Formatter } from "vexflow"
-import { useStore } from "@/store/store"
+import { useCaretIndex, useStore } from "@/store/store"
 
 type FretPos = { string: number /* 0 = low E (6th) .. 5 = high E (1st) */, fret: number }
 type ScoreEvent = { duration: string /* "q","8","h" etc */, notes: FretPos[] }
@@ -29,7 +29,7 @@ export default function TabRenderer({
   const rendererRef = useRef<any>(null)
   const contextRef = useRef<any>(null)
   const vfNotesRef = useRef<any[]>([]) // store last VexFlow TabNotes
-  const [caretIndex, setCaretIndex] = useState(0)
+  const {caretIndex, setCaretIndex} = useCaretIndex()
   const slotsRef = useRef<{ duration: string; positions: { str: number; fret: number }[] }[]>([])
   const vfWidthPerSlot = 140
 

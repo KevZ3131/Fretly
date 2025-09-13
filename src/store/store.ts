@@ -34,9 +34,17 @@ interface StoreState {
   incrementClearTabs: () => void;
 }
 
+interface setCaretIndex{
+  caretIndex: number;
+  setCaretIndex: (index: number) => void;
+}
+
 interface StoreChordNotes {
   setChordNotes: (notes: Set<string>) => void;
-  chordNotes: Set<string>;
+  addChordNote: (note: string) => void;
+  removeChordNote?: (note: string) => void;
+  clearChordNotes?: () => void;
+  chordNotes: Set<string>;  
 }
 
 interface StoreSelectedNote {
@@ -94,9 +102,24 @@ export const useStore = create<StoreState>((set, get) => ({
 export const useChordNotesStore = create<StoreChordNotes>((set, get) => ({
   chordNotes: new Set<string>(),
   setChordNotes: (notes) => set({ chordNotes: notes }),
+  addChordNote: (note) => set((state) => ({
+    chordNotes: new Set([...state.chordNotes, note])
+  })),
+  removeChordNote: (note) => set((state) => {
+    const newSet = new Set(state.chordNotes);
+    newSet.delete(note);
+    return { chordNotes: newSet };
+  }
+  ),
+  clearChordNotes: () => set({ chordNotes: new Set<string>() }),
 }));
 
 export const useSelectedNoteStore = create<StoreSelectedNote>((set, get) => ({
   selectedNote: "",
   setSelectedNote: (note: string) => set({ selectedNote: note}),
+}));
+
+export const useCaretIndex = create<setCaretIndex>((set, get) => ({
+  caretIndex: 0,
+  setCaretIndex: (index: number) => set({ caretIndex: index}),
 }));
