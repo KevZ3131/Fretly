@@ -4,15 +4,15 @@ import { useRef, useState, useEffect, useCallback } from "react"
 // @ts-ignore
 import OpenSheetMusicDisplay from "opensheetmusicdisplay"
 import { unzipSync, strFromU8 } from "fflate"
-import { useChordNotesStore, useSelectedNoteStore, useStore } from "@/store/store"
+import { useCaretIndex, useChordNotesStore, useSelectedNoteStore, useStore } from "@/store/store"
 import * as Tone from "tone"
 import { Instrument } from "opensheetmusicdisplay"
 
 export default function ScoreViewer() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { chordNotes, setChordNotes } = useChordNotesStore()
-  const { selectedNote, setSelectedNote } = useSelectedNoteStore()
+  const { chordNotes, setChordNotes, addChordNote, removeChordNote, clearChordNotes } = useChordNotesStore()
+  const { caretIndex, setCaretIndex } = useCaretIndex()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const outputRef = useRef<HTMLDivElement>(null)
   const osmdRef = useRef<any>(null)
@@ -101,23 +101,42 @@ export default function ScoreViewer() {
   const pitchToNoteName = (pitch: any): string => {
     if (!pitch) return "";
 
-    // OSMD halfTone numbers start from C0 = 0 usually
     const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-    // Use halfTone modulo 12 to get note letter
-    const noteIndex = pitch.halfTone % 12;
-    const octave = pitch.octave + Math.floor(pitch.halfTone / 12) - 1;
+    // Determine MIDI note number. OSMD 'halfTone' may sometimes be a MIDI-like number
+    // or a frequency in Hz. Handle both.
+    let midiNumber: number | null = null;
+
+    if (typeof pitch.halfTone === "number") {
+      // Heuristic: values > 128 look like Hz frequencies (e.g. 523 for C5)
+      if (pitch.halfTone > 128) {
+        midiNumber = Math.round(69 + 12 * Math.log2(pitch.halfTone / 440));
+      } else {
+        midiNumber = Math.round(pitch.halfTone);
+      }
+    } else if (typeof pitch.frequency === "number") {
+      midiNumber = Math.round(69 + 12 * Math.log2(pitch.frequency / 440));
+    } else if (typeof pitch.freq === "number") {
+      midiNumber = Math.round(69 + 12 * Math.log2(pitch.freq / 440));
+    }
+
+    if (midiNumber === null || isNaN(midiNumber)) return "";
+
+    const noteIndex = ((midiNumber % 12) + 12) % 12;
+    // MIDI note 60 is middle C (C4). Octave calculation: octave = floor(midi/12) - 1
+    const octave = Math.floor(midiNumber / 12);
 
     let note = noteNames[noteIndex] || "?";
 
-    // Apply accidental if needed
-    if (pitch.accidental) {
-        if (pitch.accidental === -2) note = note.replace("#", "bb");
-        else if (pitch.accidental === -1) note = note.replace("#", "b");
-        else if (pitch.accidental === 1) note = note + "#";
+    // Prefer accidental info from pitch if available (best-effort). MIDI mapping already
+    // yields a sharp name from the note table above.
+    if (typeof pitch.accidental === "number") {
+      if (pitch.accidental === -2) note = note.replace("#", "bb");
+      else if (pitch.accidental === -1) note = note.replace("#", "b");
+      else if (pitch.accidental === 1 && !note.includes("#")) note = note + "#";
     }
 
-    return note + octave;
+    return `${note}${octave}`;
   }
 
   const moveCursorNext = () => {
@@ -131,7 +150,7 @@ export default function ScoreViewer() {
         voiceEntry.Notes.forEach((note: any) => {
           const noteName = pitchToNoteName(note.pitch); 
           addActiveNote(noteName);
-          setSelectedNote(noteName);
+          addChordNote(noteName);
           playNote(noteName);
         });
       });
@@ -154,19 +173,19 @@ export default function ScoreViewer() {
   }
 
   const moveCursorPrev = () => {
-    if (!osmdRef.current?.cursor) return
+    if (!osmdRef.current?.cursor || caretIndex == 0) return
     try {
-      clearActiveNotes()
-      setChordNotes(new Set())
-      
       osmdRef.current.cursor.previous() 
       const currentEntries = osmdRef.current.cursor.iterator.currentVoiceEntries;
 
+      clearActiveNotes()
+      setChordNotes(new Set())
+
       currentEntries.forEach((voiceEntry: any) => {
         voiceEntry.Notes.forEach((note: any) => {
-          const noteName = pitchToNoteName(note.pitch); 
+          const noteName = pitchToNoteName(note.pitch);
           addActiveNote(noteName);
-          setSelectedNote(noteName);
+          addChordNote(noteName);
           playNote(noteName);
         });
       });
@@ -295,6 +314,7 @@ export default function ScoreViewer() {
                 voiceEntry.Notes.forEach((note: any) => {
                 const noteName = pitchToNoteName(note.pitch); 
                 addActiveNote(noteName);
+                addChordNote(noteName);
                 playNote(noteName);
                 });
             });

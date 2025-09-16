@@ -158,7 +158,7 @@ export default function PianoApp({ onLoaded }: { onLoaded?: () => void } = {}) {
       }
     }
   }, [])
-// for vercel
+
   // Scroll to G2 after initial render
   useEffect(() => {
     if (scrollRef.current) {
