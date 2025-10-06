@@ -13,6 +13,7 @@
     "@tombatossals/react-chords": "^0.2.10",
     "@tonaljs/tonal": "^4.10.0",
     "@tonejs/midi": "^2.0.28",
+    "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "fflate": "^0.8.2",
