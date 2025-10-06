@@ -173,7 +173,9 @@ export default function ScoreViewer() {
   }
 
   const moveCursorPrev = () => {
-    if (!osmdRef.current?.cursor || caretIndex == 0) return
+    if (!osmdRef.current?.cursor) return
+    // Check if we're at the start - prevent going negative
+    if (osmdRef.current.cursor.iterator.currentTimeStamp.realValue === 0) return
     try {
       osmdRef.current.cursor.previous() 
       const currentEntries = osmdRef.current.cursor.iterator.currentVoiceEntries;
