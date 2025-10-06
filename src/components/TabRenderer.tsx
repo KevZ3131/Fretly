@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react"
 // @ts-ignore
 import { Renderer, TabStave, TabNote, Voice, Formatter } from "vexflow"
 import { useCaretIndex, useStore } from "@/store/store"
+import { zipSync } from "fflate" // added import
 
 type FretPos = { string: number /* 0 = low E (6th) .. 5 = high E (1st) */, fret: number }
 type ScoreEvent = { duration: string /* "q","8","h" etc */, notes: FretPos[] }
@@ -91,7 +92,8 @@ export default function TabRenderer({
     const vfNotes = slotsRef.current.map(slotToTabNote)
     vfNotesRef.current = vfNotes // keep reference for caret alignment
 
-    const voice = new Voice({ num_beats: 4, beat_value: 4 })
+    // Use infinite voice with no time constraints
+    const voice = new Voice({ num_beats: 999999, beat_value: 4 })
 
     // Ensure voice is in SOFT mode so VexFlow does not throw IncompleteVoice for non-exact tick totals
     if ((voice as any).setMode) {
@@ -292,52 +294,159 @@ export default function TabRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasScore, scoreEvents])
 
-  // Export MusicXML from current tab slots (pretty-printed with newlines)
+  // Export MusicXML from current tab slots (MuseScore-friendly: standard staff + tab staff)
   const handleExportMusicXML = () => {
     const indent = (level: number) => "  ".repeat(level)
 
-    function fretPosToNoteXml(pos: { str: number; fret: number }, level: number) {
-      const stringNum = pos.str + 1 // 1..6
-      const fretNum = pos.fret
-      const midi = 40 + (6 - stringNum) * 5 + fretNum
-      const stepArr = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-      const step = stepArr[midi % 12]
-      const octave = Math.floor(midi / 12) - 1
+    // Match Fretboard tuning (MIDI numbers)
+    const STANDARD_TUNING_MIDI = [64, 59, 55, 50, 45, 40] // [E4, B3, G3, D3, A2, E2]
+    const STEP_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
-      const lines = [
-        `${indent(level)}<note>`,
-        `${indent(level+1)}<pitch>`,
-        `${indent(level+2)}<step>${step.replace("#","")}</step>`,
-        step.includes("#") ? `${indent(level+2)}<alter>1</alter>` : null,
-        `${indent(level+2)}<octave>${octave}</octave>`,
-        `${indent(level+1)}</pitch>`,
-        `${indent(level+1)}<duration>1</duration>`,
-        `${indent(level+1)}<notations>`,
-        `${indent(level+2)}<technical>`,
-        `${indent(level+3)}<string>${stringNum}</string>`,
-        `${indent(level+3)}<fret>${fretNum}</fret>`,
-        `${indent(level+2)}</technical>`,
-        `${indent(level+1)}</notations>`,
-        `${indent(level)}</note>`,
-      ].filter(Boolean as any)
+    const midiToPitchParts = (midi: number) => {
+      const stepIndex = ((midi % 12) + 12) % 12
+      const step = STEP_NAMES[stepIndex]
+      const octave = Math.floor(midi / 12) - 1
+      const alter = step.includes("#") ? 1 : 0
+      return { step: step.replace("#", ""), alter, octave }
+    }
+
+    const pitchNoteXml = (pos: { str: number; fret: number }, isChord: boolean, staff: number, voice: number, level: number) => {
+      // pos.str: 0 = low E (6th) .. 5 = high E (1st)
+      const stringIndex = Math.max(0, Math.min(5, pos.str))
+      const fret = Math.max(0, pos.fret)
+      const midi = (STANDARD_TUNING_MIDI[stringIndex] ?? 40) + fret
+      const { step, alter, octave } = midiToPitchParts(midi)
+
+      const lines: string[] = []
+      lines.push(`${indent(level)}<note>`)
+      if (isChord) lines.push(`${indent(level+1)}<chord/>`)
+      lines.push(`${indent(level+1)}<pitch>`)
+      lines.push(`${indent(level+2)}<step>${step}</step>`)
+      if (alter) lines.push(`${indent(level+2)}<alter>${alter}</alter>`)
+      lines.push(`${indent(level+2)}<octave>${octave}</octave>`)
+      lines.push(`${indent(level+1)}</pitch>`)
+      lines.push(`${indent(level+1)}<duration>1</duration>`)
+      lines.push(`${indent(level+1)}<voice>${voice}</voice>`)
+      lines.push(`${indent(level+1)}<type>quarter</type>`)
+      lines.push(`${indent(level+1)}<staff>${staff}</staff>`)
+      lines.push(`${indent(level)}</note>`)
       return lines.join("\n")
     }
 
+    const tabNoteXml = (pos: { str: number; fret: number }, isChord: boolean, staff: number, voice: number, level: number) => {
+      // produce a tab note: include pitch for alignment and <notations><technical> for string/fret
+      const stringIndex = Math.max(0, Math.min(5, pos.str))
+      const fret = Math.max(0, pos.fret)
+      const midi = (STANDARD_TUNING_MIDI[stringIndex] ?? 40) + fret
+      const { step, alter, octave } = midiToPitchParts(midi)
+
+      const stringNumberForMusicXML = 6 - stringIndex // internal 0=lowE -> MusicXML string=6
+
+      const lines: string[] = []
+      lines.push(`${indent(level)}<note>`)
+      if (isChord) lines.push(`${indent(level+1)}<chord/>`)
+      lines.push(`${indent(level+1)}<pitch>`)
+      lines.push(`${indent(level+2)}<step>${step}</step>`)
+      if (alter) lines.push(`${indent(level+2)}<alter>${alter}</alter>`)
+      lines.push(`${indent(level+2)}<octave>${octave}</octave>`)
+      lines.push(`${indent(level+1)}</pitch>`)
+      lines.push(`${indent(level+1)}<duration>1</duration>`)
+      lines.push(`${indent(level+1)}<voice>${voice}</voice>`)
+      lines.push(`${indent(level+1)}<type>quarter</type>`)
+      lines.push(`${indent(level+1)}<staff>${staff}</staff>`)
+      lines.push(`${indent(level+1)}<notations>`)
+      lines.push(`${indent(level+2)}<technical>`)
+      lines.push(`${indent(level+3)}<string>${stringNumberForMusicXML}</string>`)
+      lines.push(`${indent(level+3)}<fret>${fret}</fret>`)
+      lines.push(`${indent(level+2)}</technical>`)
+      lines.push(`${indent(level+1)}</notations>`)
+      lines.push(`${indent(level)}</note>`)
+      return lines.join("\n")
+    }
+
+    // Collect all notes into a single measure
     const measuresLines: string[] = []
-    slotsRef.current.forEach((slot, idx) => {
-      measuresLines.push(`${indent(2)}<measure number="${idx+1}">`)
+    measuresLines.push(`${indent(2)}<measure number="1">`)
+
+    // Add staff/clef attributes at start
+    measuresLines.push(`${indent(3)}<attributes>`)
+    measuresLines.push(`${indent(4)}<divisions>1</divisions>`)
+    measuresLines.push(`${indent(4)}<key><fifths>0</fifths></key>`)
+    measuresLines.push(`${indent(4)}<staves>2</staves>`)
+    measuresLines.push(`${indent(4)}<clef number="1">`)
+    measuresLines.push(`${indent(5)}<sign>G</sign>`)
+    measuresLines.push(`${indent(5)}<line>2</line>`)
+    measuresLines.push(`${indent(4)}</clef>`)
+    measuresLines.push(`${indent(4)}<clef number="2">`)
+    measuresLines.push(`${indent(5)}<sign>TAB</sign>`)
+    measuresLines.push(`${indent(5)}<line>6</line>`)
+    measuresLines.push(`${indent(4)}</clef>`)
+    // staff 1 (standard)
+    measuresLines.push(`${indent(4)}<staff-details number="1">`)
+    measuresLines.push(`${indent(5)}<staff-lines>5</staff-lines>`)
+    measuresLines.push(`${indent(4)}</staff-details>`)
+    // staff 2 (tab)
+    measuresLines.push(`${indent(4)}<staff-details number="2">`)
+    measuresLines.push(`${indent(5)}<staff-lines>6</staff-lines>`)
+    measuresLines.push(`${indent(5)}<staff-type>tab</staff-type>`)
+    measuresLines.push(`${indent(5)}<show-frets>numbers</show-frets>`)
+    // tuning entries (top to bottom)
+    const tuning = [
+      { step: "E", octave: 4 },
+      { step: "B", octave: 3 },
+      { step: "G", octave: 3 },
+      { step: "D", octave: 3 },
+      { step: "A", octave: 2 },
+      { step: "E", octave: 2 },
+    ]
+    tuning.forEach((t, i) => {
+      measuresLines.push(`${indent(5)}<staff-tuning line="${i + 1}">`)
+      measuresLines.push(`${indent(6)}<tuning-step>${t.step}</tuning-step>`)
+      measuresLines.push(`${indent(6)}<tuning-octave>${t.octave}</tuning-octave>`)
+      measuresLines.push(`${indent(5)}</staff-tuning>`)
+    })
+    measuresLines.push(`${indent(4)}</staff-details>`)
+    measuresLines.push(`${indent(3)}</attributes>`)
+
+    // Add all notes in sequence
+    slotsRef.current.forEach((slot) => {
       if (slot.positions && slot.positions.length > 0) {
-        slot.positions.forEach(p => {
-          measuresLines.push(fretPosToNoteXml(p, 3))
-        })
+        // Emit standard staff notes first (staff=1, voice=1)
+        for (let i = 0; i < slot.positions.length; i++) {
+          const isChord = i > 0
+          measuresLines.push(pitchNoteXml(slot.positions[i], isChord, 1, 1, 3))
+        }
+
+        // Insert backup to reset time cursor for simultaneous tab notes
+        measuresLines.push(`${indent(3)}<backup>`)
+        measuresLines.push(`${indent(4)}<duration>1</duration>`)
+        measuresLines.push(`${indent(3)}</backup>`)
+
+        // Emit tablature staff notes (staff=2, voice=2)
+        for (let i = 0; i < slot.positions.length; i++) {
+          const isChord = i > 0
+          measuresLines.push(tabNoteXml(slot.positions[i], isChord, 2, 2, 3))
+        }
       } else {
+        // rest in both staves
         measuresLines.push(`${indent(3)}<note>`)
         measuresLines.push(`${indent(4)}<rest/>`)
         measuresLines.push(`${indent(4)}<duration>1</duration>`)
+        measuresLines.push(`${indent(4)}<voice>1</voice>`)
+        measuresLines.push(`${indent(4)}<type>quarter</type>`)
+        measuresLines.push(`${indent(4)}<staff>1</staff>`)
+        measuresLines.push(`${indent(3)}</note>`)
+        measuresLines.push(`${indent(3)}<note>`)
+        measuresLines.push(`${indent(4)}<rest/>`)
+        measuresLines.push(`${indent(4)}<duration>1</duration>`)
+        measuresLines.push(`${indent(4)}<voice>2</voice>`)
+        measuresLines.push(`${indent(4)}<type>quarter</type>`)
+        measuresLines.push(`${indent(4)}<staff>2</staff>`)
         measuresLines.push(`${indent(3)}</note>`)
       }
-      measuresLines.push(`${indent(2)}</measure>`)
     })
+
+    measuresLines.push(`${indent(2)}</measure>`)
 
     const xmlLines = [
       `<?xml version="1.0" encoding="UTF-8"?>`,
@@ -347,7 +456,8 @@ export default function TabRenderer({
       `<score-partwise version="3.1">`,
       `${indent(1)}<part-list>`,
       `${indent(2)}<score-part id="P1">`,
-      `${indent(3)}<part-name>Guitar Tab</part-name>`,
+      `${indent(3)}<part-name>Guitar (Standard + Tab)</part-name>`,
+      `${indent(3)}<score-instrument id="P1-I1"><instrument-name>Guitar</instrument-name></score-instrument>`,
       `${indent(2)}</score-part>`,
       `${indent(1)}</part-list>`,
       `${indent(1)}<part id="P1">`,
@@ -358,157 +468,188 @@ export default function TabRenderer({
 
     const musicXml = xmlLines.join("\n")
 
-    const blob = new Blob([musicXml], { type: "application/xml" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "fretly_tab.xml"
-    document.body.appendChild(a)
-    a.click()
-    setTimeout(() => {
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    }, 150)
-  };
-
-  // Export PNG/PDF: create multi-page images and export a real PDF file (automatic download)
-  const loadJsPdf = (): Promise<any> => {
-    if ((window as any).jspdf && (window as any).jspdf.jsPDF) return Promise.resolve((window as any).jspdf);
-    return new Promise((resolve, reject) => {
-      const src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-      const existing = document.querySelector(`script[src="${src}"]`);
-      if (existing) {
-        const check = () => {
-          if ((window as any).jspdf && (window as any).jspdf.jsPDF) resolve((window as any).jspdf);
-          else setTimeout(check, 50);
-        };
-        check();
-        return;
+    // package as .mxl (unchanged)
+    try {
+      const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="score.xml" media-type="application/vnd.recordare.musicxml"/>
+  </rootfiles>
+</container>`
+      const files: Record<string, Uint8Array> = {
+        "score.xml": new TextEncoder().encode(musicXml),
+        "META-INF/container.xml": new TextEncoder().encode(containerXml),
       }
-      const s = document.createElement("script");
-      s.src = src;
-      s.onload = () => {
-        if ((window as any).jspdf && (window as any).jspdf.jsPDF) resolve((window as any).jspdf);
-        else reject(new Error("jsPDF failed to load"));
-      };
-      s.onerror = () => reject(new Error("Failed to load jsPDF script"));
-      document.head.appendChild(s);
-    });
-  };
-
-  const handleExportPDF = async () => {
-    const svgEl = containerRef.current?.querySelector("svg") as SVGSVGElement | null;
-    if (!svgEl) return;
-
-    const serializer = new XMLSerializer();
-    let svgString = serializer.serializeToString(svgEl);
-    if (!svgString.match(/^<svg[^>]+xmlns=/)) {
-      svgString = svgString.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      const zipped = zipSync(files)
+      const uint8 = zipped instanceof Uint8Array ? zipped : new Uint8Array(zipped as any)
+      const blob = new Blob([uint8.buffer], { type: "application/zip" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = "fretly_tab.mxl"
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }, 150)
+    } catch (err) {
+      // fallback
+      const blob = new Blob([musicXml], { type: "application/xml" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = "fretly_tab.xml"
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }, 150)
     }
-
-    const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = async () => {
-      try {
-        const ratio = window.devicePixelRatio || 1;
-        const svgWidth = img.width;
-        const svgHeight = img.height;
-
-        // Page width (px) to slice horizontally — A4-like width in px at 96dpi (~794px)
-        const PAGE_PX = 794;
-        const pageWidthPx = PAGE_PX;
-        const pageCount = Math.ceil(svgWidth / pageWidthPx);
-
-        // Draw full svg into high-dpi canvas
-        const fullCanvas = document.createElement("canvas");
-        fullCanvas.width = Math.max(1, Math.round(svgWidth * ratio));
-        fullCanvas.height = Math.max(1, Math.round(svgHeight * ratio));
-        const fullCtx = fullCanvas.getContext("2d");
-        if (!fullCtx) throw new Error("Canvas context unavailable");
-        fullCtx.fillStyle = "#ffffff";
-        fullCtx.fillRect(0, 0, fullCanvas.width, fullCanvas.height);
-        fullCtx.drawImage(img, 0, 0, fullCanvas.width, fullCanvas.height);
-
-        // Produce page images (PNG data URLs)
-        const pagesData: string[] = [];
-        for (let p = 0; p < pageCount; p++) {
-          const sx = p * pageWidthPx;
-          const sWidth = Math.min(pageWidthPx, svgWidth - sx);
-          const canvasPage = document.createElement("canvas");
-          canvasPage.width = Math.max(1, Math.round(sWidth * ratio));
-          canvasPage.height = fullCanvas.height;
-          const ctx = canvasPage.getContext("2d");
-          if (!ctx) throw new Error("Canvas context unavailable");
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, canvasPage.width, canvasPage.height);
-          ctx.drawImage(
-            fullCanvas,
-            Math.round(sx * ratio), 0,
-            Math.round(sWidth * ratio), fullCanvas.height,
-            0, 0,
-            Math.round(sWidth * ratio), fullCanvas.height
-          );
-          pagesData.push(canvasPage.toDataURL("image/png"));
-        }
-
-        // Load jsPDF dynamically
-        const jspdf = await loadJsPdf();
-        const { jsPDF } = jspdf;
-
-        // Create PDF and add pages
-        // Convert px -> mm (1 px @ 96dpi = 0.264583333 mm)
-        const PX_TO_MM = 0.264583333;
-        let doc: any = null;
-        for (let i = 0; i < pagesData.length; i++) {
-          const dataUrl = pagesData[i];
-          // Create an Image to read dimensions (we already have sWidth/sizes, but use canvas)
-          const image = new Image();
-          image.src = dataUrl;
-          // Wait for image (should be cached)
-          await new Promise<void>((res) => {
-            image.onload = () => res();
-            image.onerror = () => res();
-          });
-          const iw = image.width;
-          const ih = image.height;
-          const mmW = Math.max(1, iw * PX_TO_MM);
-          const mmH = Math.max(1, ih * PX_TO_MM);
-
-          if (i === 0) {
-            // create doc with size matching first page
-            doc = new jsPDF({
-              unit: "mm",
-              format: [mmW, mmH],
-              orientation: mmW > mmH ? "landscape" : "portrait",
-            });
-            doc.addImage(dataUrl, "PNG", 0, 0, mmW, mmH);
-          } else {
-            doc.addPage([mmW, mmH], mmW > mmH ? "landscape" : "portrait");
-            doc.addImage(dataUrl, "PNG", 0, 0, mmW, mmH);
-          }
-        }
-
-        if (doc) {
-          doc.save("tabs.pdf");
-        } else {
-          // fallback: download first PNG
-          const a = document.createElement("a");
-          a.href = pagesData[0];
-          a.download = "tab-page-1.png";
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        }
-      } catch (err) {
-        console.error("Export PDF failed:", err);
-      }
-    };
-    img.onerror = () => {
-      console.error("Failed to load serialized SVG as image");
-    };
-    img.src = svgDataUrl;
   };
+
+  // Export PDF: use VexFlow Canvas backend to render offscreen, then create real PDF via jsPDF
+  const handleExportPDF = async () => {
+    // Create offscreen container
+    const off = document.createElement("div")
+    off.style.position = "fixed"
+    off.style.left = "-10000px"
+    document.body.appendChild(off)
+
+    try {
+      // Create a real HTMLCanvasElement and pass it to VexFlow Canvas renderer
+      const canvasEl = document.createElement("canvas")
+      // ensure it's attached so VexFlow can initialize it
+      off.appendChild(canvasEl)
+
+      // Create a VexFlow renderer using Canvas backend on the canvas element
+      const offRenderer = new Renderer(canvasEl, Renderer.Backends.CANVAS)
+      const slotCount = Math.max(1, slotsRef.current.length)
+      const width = Math.max(vfWidthPerSlot * slotCount, 400)
+      const height = 140
+      // let VexFlow set the canvas internal size
+      offRenderer.resize(width, height)
+      const offContext = offRenderer.getContext()
+
+      // Draw stave + notes into the offscreen renderer (same logic as drawAll)
+      const staveX = 10
+      const stave = new TabStave(staveX, 10, width - 20)
+      stave.addTabGlyph()
+      stave.setContext(offContext).draw()
+
+      const vfNotes = slotsRef.current.map(slotToTabNote)
+      const voice = new Voice({ num_beats: 4, beat_value: 4 })
+      if ((voice as any).setMode) {
+        try { (voice as any).setMode(Voice.Mode.SOFT) } catch {}
+      }
+      vfNotes.forEach(n => voice.addTickable(n))
+      const formatter = new Formatter()
+      try { formatter.joinVoices([voice]).format([voice], width - 40) } catch (err) { /* ignore */ }
+      voice.draw(offContext, stave)
+
+      // Now use the actual canvas element we created above (canvasEl)
+      if (!canvasEl) throw new Error("Offscreen canvas not found")
+
+      // Prepare high-DPI scaling
+      const ratio = window.devicePixelRatio || 1
+      const svgWidth = canvasEl.width / ratio
+      const svgHeight = canvasEl.height / ratio
+
+      // Determine page width (A4-like) in CSS pixels
+      const PAGE_PX = 794 // ~A4 width @96dpi
+      const pageCount = Math.ceil(svgWidth / PAGE_PX)
+      const pagesData: string[] = []
+
+      // Create full-resolution offscreen canvas copy to slice from (to preserve DPI)
+      const fullCanvas = document.createElement("canvas")
+      fullCanvas.width = canvasEl.width
+      fullCanvas.height = canvasEl.height
+      const fullCtx = fullCanvas.getContext("2d")
+      if (!fullCtx) throw new Error("2D context unavailable")
+      fullCtx.fillStyle = "#fff"
+      fullCtx.fillRect(0, 0, fullCanvas.width, fullCanvas.height)
+      fullCtx.drawImage(canvasEl, 0, 0)
+
+      for (let p = 0; p < pageCount; p++) {
+        const sx = Math.round(p * PAGE_PX * ratio)
+        const sWidthPx = Math.min(Math.round(PAGE_PX * ratio), fullCanvas.width - sx)
+        const pageCanvas = document.createElement("canvas")
+        pageCanvas.width = sWidthPx
+        pageCanvas.height = fullCanvas.height
+        const pageCtx = pageCanvas.getContext("2d")
+        if (!pageCtx) throw new Error("2D context unavailable")
+        pageCtx.fillStyle = "#fff"
+        pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
+        pageCtx.drawImage(fullCanvas, sx, 0, sWidthPx, fullCanvas.height, 0, 0, sWidthPx, fullCanvas.height)
+        pagesData.push(pageCanvas.toDataURL("image/png"))
+      }
+
+      // Load jsPDF and assemble PDF
+      const loadJsPdf = (): Promise<any> => {
+        if ((window as any).jspdf && (window as any).jspdf.jsPDF) return Promise.resolve((window as any).jspdf)
+        return new Promise((resolve, reject) => {
+          const src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+          const existing = document.querySelector(`script[src="${src}"]`)
+          if (existing) {
+            const check = () => {
+              if ((window as any).jspdf && (window as any).jspdf.jsPDF) resolve((window as any).jspdf)
+              else setTimeout(check, 50)
+            }
+            check()
+            return
+          }
+          const s = document.createElement("script")
+          s.src = src
+          s.onload = () => {
+            if ((window as any).jspdf && (window as any).jspdf.jsPDF) resolve((window as any).jspdf)
+            else reject(new Error("jsPDF failed to load"))
+          }
+          s.onerror = () => reject(new Error("Failed to load jsPDF"))
+          document.head.appendChild(s)
+        })
+      }
+
+      const jspdf = await loadJsPdf()
+      const { jsPDF } = jspdf
+      const PX_TO_MM = 0.264583333
+
+      let doc: any = null
+      for (let i = 0; i < pagesData.length; i++) {
+        const dataUrl = pagesData[i]
+        const image = new Image()
+        image.src = dataUrl
+        await new Promise<void>((res) => { image.onload = () => res(); image.onerror = () => res() })
+        const iw = image.width
+        const ih = image.height
+        const mmW = Math.max(1, iw * PX_TO_MM)
+        const mmH = Math.max(1, ih * PX_TO_MM)
+
+        if (i === 0) {
+          doc = new jsPDF({ unit: "mm", format: [mmW, mmH], orientation: mmW > mmH ? "landscape" : "portrait" })
+          doc.addImage(dataUrl, "PNG", 0, 0, mmW, mmH)
+        } else {
+          doc.addPage([mmW, mmH], mmW > mmH ? "landscape" : "portrait")
+          doc.addImage(dataUrl, "PNG", 0, 0, mmW, mmH)
+        }
+      }
+
+      if (doc) doc.save("tabs.pdf")
+      else {
+        const a = document.createElement("a")
+        a.href = pagesData[0]
+        a.download = "tab-page-1.png"
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
+    } catch (err) {
+      console.error("Export PDF failed:", err)
+    } finally {
+      // cleanup
+      if (off && off.parentNode) document.body.removeChild(off)
+    }
+  }
 
   return (
     <div className="w-full">
