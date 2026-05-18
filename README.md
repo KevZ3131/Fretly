@@ -1,5 +1,3 @@
-
-https://github.com/user-attachments/assets/eaafb3f5-6a10-4eda-8cfb-54c025991efb
 # Fretly
 
 Fretly is a browser-based music practice and visualization app built with **Next.js**. It combines an interactive **piano**, an interactive **guitar fretboard**, a **tab renderer**, and a **score viewer** so you can explore notes/chords across different instrument and notation views.
