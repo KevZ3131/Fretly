@@ -1,4 +1,4 @@
-# Fretly
+# Fretly (https://fretly-green.vercel.app/)
 
 Fretly is a browser-based music practice and visualization app built with **Next.js**. It combines an interactive **piano**, an interactive **guitar fretboard**, a **tab renderer**, and a **score viewer** so you can explore notes/chords across different instrument and notation views.
 
@@ -85,6 +85,4 @@ npm run lint    # Run ESLint
 
 - https://nextjs.org/docs/app/building-your-application/deploying
 
----
 
-If you want, tell me the intended “one-liner” for Fretly (e.g., *"a guitar/tab/score practice tool"*) and I’ll tighten the intro + feature list to match your exact vision.
